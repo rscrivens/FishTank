@@ -4,16 +4,18 @@ document.querySelector("form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const button = e.target.querySelector("button");
 
-  const name = document.getElementById("name").value.toString();
+  const uri = document.getElementById("uri").value.toString();
 
   button.setAttribute("disabled", true);
 
-  // Interact with foo actor, calling the greet method
-  const greeting = await FishTank.greet(name);
+  const nftId = await FishTank.mint(uri);
 
   button.removeAttribute("disabled");
 
-  document.getElementById("greeting").innerText = greeting;
+  document.getElementById("nftid").innerText = nftId;
+
+  const nftUri = await FishTank.tokenURI(nftId);
+  document.getElementById("nftimg").src = nftUri;
 
   return false;
 });
