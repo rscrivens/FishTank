@@ -14,7 +14,7 @@ document.querySelector("form").addEventListener("submit", async (e) => {
 
   document.getElementById("nftid").innerText = nftId;
 
-  const nftUri = await FishTank.tokenURI(nftId);
+  const nftUri = await FishTank.tokenMetaData(nftId);
   document.getElementById("nftimg").src = nftUri;
 
   return false;

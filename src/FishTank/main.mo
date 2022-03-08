@@ -7,21 +7,33 @@ import Principal "mo:base/Principal";
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
 import T "dip721_types";
+import Random "mo:base/Random";
+import Blob "mo:base/Blob";
+import Debug "mo:base/Debug";
+import Float "mo:base/Float";
+import Int "mo:base/Int";
 
 actor class DRC721(_name : Text, _symbol : Text) {
+    type Fish = {
+        color_1: Text;
+        color_2: Text;
+    };
+
     private stable var tokenPk : Nat = 0;
 
-    private stable var tokenURIEntries : [(T.TokenId, Text)] = [];
+    private stable var tokenFishEntries : [(T.TokenId, Fish)] = [];
     private stable var ownersEntries : [(T.TokenId, Principal)] = [];
     private stable var balancesEntries : [(Principal, Nat)] = [];
     private stable var tokenApprovalsEntries : [(T.TokenId, Principal)] = [];
     private stable var operatorApprovalsEntries : [(Principal, [Principal])] = [];
 
-    private let tokenURIs : HashMap.HashMap<T.TokenId, Text> = HashMap.fromIter<T.TokenId, Text>(tokenURIEntries.vals(), 10, Nat.equal, Hash.hash);
+    private let tokenFishes : HashMap.HashMap<T.TokenId, Fish> = HashMap.fromIter<T.TokenId, Fish>(tokenFishEntries.vals(), 10, Nat.equal, Hash.hash);
     private let owners : HashMap.HashMap<T.TokenId, Principal> = HashMap.fromIter<T.TokenId, Principal>(ownersEntries.vals(), 10, Nat.equal, Hash.hash);
     private let balances : HashMap.HashMap<Principal, Nat> = HashMap.fromIter<Principal, Nat>(balancesEntries.vals(), 10, Principal.equal, Principal.hash);
     private let tokenApprovals : HashMap.HashMap<T.TokenId, Principal> = HashMap.fromIter<T.TokenId, Principal>(tokenApprovalsEntries.vals(), 10, Nat.equal, Hash.hash);
     private let operatorApprovals : HashMap.HashMap<Principal, [Principal]> = HashMap.fromIter<Principal, [Principal]>(operatorApprovalsEntries.vals(), 10, Principal.equal, Principal.hash);
+    
+    private var finite : Random.Finite = Random.Finite(Blob.fromArray([]));
 
     public shared func balanceOf(p : Principal) : async ?Nat {
         return balances.get(p);
@@ -31,8 +43,9 @@ actor class DRC721(_name : Text, _symbol : Text) {
         return _ownerOf(tokenId);
     };
 
-    public shared query func tokenURI(tokenId : T.TokenId) : async ?Text {
-        return _tokenURI(tokenId);
+
+    public shared query func tokenMetaData(tokenId : T.TokenId) : async ?Fish {
+        return _tokenMetaData(tokenId);
     };
 
     public shared query func name() : async Text {
@@ -106,7 +119,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
 
     public shared(msg) func mint(uri : Text) : async Nat {
         tokenPk += 1;
-        _mint(msg.caller, tokenPk, uri);
+        await _mint(msg.caller, tokenPk, uri);
         return tokenPk;
     };
 
@@ -117,8 +130,8 @@ actor class DRC721(_name : Text, _symbol : Text) {
         return owners.get(tokenId);
     };
 
-    private func _tokenURI(tokenId : T.TokenId) : ?Text {
-        return tokenURIs.get(tokenId);
+    private func _tokenMetaData(tokenId : T.TokenId) : ?Fish {
+        return tokenFishes.get(tokenId);
     };
 
     private func _isApprovedForAll(owner : Principal, opperator : Principal) : Bool {
@@ -207,12 +220,18 @@ actor class DRC721(_name : Text, _symbol : Text) {
         }
     };
 
-    private func _mint(to : Principal, tokenId : Nat, uri : Text) : () {
+    private func _mint(to : Principal, tokenId : Nat, uri : Text) : async () {
         assert not _exists(tokenId);
 
+        let fish: Fish = {
+            color_1 = await _get_random_color1();
+            color_2 = await _get_random_color2();
+        };
+        
         _incrementBalance(to);
         owners.put(tokenId, to);
-        tokenURIs.put(tokenId,uri)
+        tokenFishes.put(tokenId, fish);
+        //tokenURIs.put(tokenId,uri)
     };
 
     private func _burn(tokenId : Nat) {
@@ -224,8 +243,56 @@ actor class DRC721(_name : Text, _symbol : Text) {
         ignore owners.remove(tokenId);
     };
 
+    private func _rand(max: Nat) : async Nat{
+        let range_p : Nat8 = 7;
+
+        var next: ?Nat = finite.range(range_p);
+        if(next == null){
+            var b: Blob = await Random.blob();
+            finite := Random.Finite(b);
+            next := finite.range(range_p);
+            Debug.print("created new Finite");
+        };
+
+        Debug.print("rand: " # Nat.toText(Option.get(next, 0)));
+
+        let maxRand : Float = 127;
+        var randPercent : Float = Float.fromInt(Option.get(next, 0)) / maxRand;
+        var randNormalized : Float = Float.floor(randPercent * Float.fromInt(max));
+        var rand_return : Nat = Int.abs(Float.toInt(randNormalized));
+
+        // takes care of the case where random was exactly maxRand, this helps keep the spread the same from 0 to (max - 1);
+        if(rand_return == max){
+            rand_return -= 1;
+        };
+
+        return (rand_return);
+    };
+
+    private func _get_random_color1() : async Text {
+        let i : Nat = await _rand(colors_for_1.size());
+        return (colors_for_1[i]);
+    };
+
+    private func _get_random_color2() : async Text {
+        let i : Nat = await _rand(colors_for_2.size());
+        return (colors_for_2[i]);
+    };
+
+    private let colors_for_1 : [Text] = [
+        "#12345", /*red*/
+        "#34567", /*blue*/
+        "#67890" /*green*/
+    ];
+
+    private let colors_for_2 : [Text] = [
+        "#12345", /*red*/
+        "#34567", /*blue*/
+        "#67890" /*green*/
+    ];
+
     system func preupgrade() {
-        tokenURIEntries := Iter.toArray(tokenURIs.entries());
+        tokenFishEntries := Iter.toArray(tokenFishes.entries());
         ownersEntries := Iter.toArray(owners.entries());
         balancesEntries := Iter.toArray(balances.entries());
         tokenApprovalsEntries := Iter.toArray(tokenApprovals.entries());
@@ -234,7 +301,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
     };
 
     system func postupgrade() {
-        tokenURIEntries := [];
+        tokenFishEntries := [];
         ownersEntries := [];
         balancesEntries := [];
         tokenApprovalsEntries := [];
