@@ -231,7 +231,6 @@ actor class DRC721(_name : Text, _symbol : Text) {
         _incrementBalance(to);
         owners.put(tokenId, to);
         tokenFishes.put(tokenId, fish);
-        //tokenURIs.put(tokenId,uri)
     };
 
     private func _burn(tokenId : Nat) {
