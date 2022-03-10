@@ -1,0 +1,29 @@
+    <svg id="tank" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1920 1080">
+        <style type="text/css" id="fishes"></style>
+        <style>
+            .water1 {
+                fill: url(#water1-gradient);
+            }
+
+            .water2 {
+                fill: url(#water2-gradient);
+            }
+        </style>
+        <defs>
+            <radialGradient id="water1-gradient" cx="960" cy="540" r="1000" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#018bb4"></stop>
+                <stop offset="1" stop-color="#041b51"></stop>
+            </radialGradient>
+            <radialGradient id="water2-gradient" cx="960" cy="-2100" r="3000" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#5ddbfd"></stop>
+                <stop offset=".75" stop-color="#81ebf9"></stop>
+            <stop offset=".8" stop-color="#81ebf9" stop-opacity="0"></stop></radialGradient>
+        </defs>
+        <g id="water1">
+            <rect class="water1" width="1920" height="1080"></rect>
+        </g>
+        <g id="water2">
+            <rect class="water2" width="1920" height="1080"></rect>
+        </g>
+
+    </svg>

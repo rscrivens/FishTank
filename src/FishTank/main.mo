@@ -1,33 +1,31 @@
-import Error "mo:base/Error";
-import Hash "mo:base/Hash";
-import HashMap "mo:base/HashMap";
-import Nat "mo:base/Nat";
-import Option "mo:base/Option";
-import Principal "mo:base/Principal";
 import Array "mo:base/Array";
-import Iter "mo:base/Iter";
-import T "dip721_types";
-import Random "mo:base/Random";
 import Blob "mo:base/Blob";
 import Debug "mo:base/Debug";
+import Error "mo:base/Error";
 import Float "mo:base/Float";
+import Hash "mo:base/Hash";
+import HashMap "mo:base/HashMap";
 import Int "mo:base/Int";
+import Iter "mo:base/Iter";
+import Nat "mo:base/Nat";
+import Nat64 "mo:base/Nat64";
+import Option "mo:base/Option";
+import Principal "mo:base/Principal";
+import Random "mo:base/Random";
+import T "dip721_types";
+import TP "token_prop_type";
+import Time "mo:base/Time";
 
 actor class DRC721(_name : Text, _symbol : Text) {
-    type Fish = {
-        color_1: Text;
-        color_2: Text;
-    };
-
     private stable var tokenPk : Nat = 0;
 
-    private stable var tokenFishEntries : [(T.TokenId, Fish)] = [];
+    private stable var tokenFishEntries : [(T.TokenId, T.TokenMetadata)] = [];
     private stable var ownersEntries : [(T.TokenId, Principal)] = [];
     private stable var balancesEntries : [(Principal, Nat)] = [];
     private stable var tokenApprovalsEntries : [(T.TokenId, Principal)] = [];
     private stable var operatorApprovalsEntries : [(Principal, [Principal])] = [];
 
-    private let tokenFishes : HashMap.HashMap<T.TokenId, Fish> = HashMap.fromIter<T.TokenId, Fish>(tokenFishEntries.vals(), 10, Nat.equal, Hash.hash);
+    private let tokenFishes : HashMap.HashMap<T.TokenId, T.TokenMetadata> = HashMap.fromIter<T.TokenId, T.TokenMetadata>(tokenFishEntries.vals(), 10, Nat.equal, Hash.hash);
     private let owners : HashMap.HashMap<T.TokenId, Principal> = HashMap.fromIter<T.TokenId, Principal>(ownersEntries.vals(), 10, Nat.equal, Hash.hash);
     private let balances : HashMap.HashMap<Principal, Nat> = HashMap.fromIter<Principal, Nat>(balancesEntries.vals(), 10, Principal.equal, Principal.hash);
     private let tokenApprovals : HashMap.HashMap<T.TokenId, Principal> = HashMap.fromIter<T.TokenId, Principal>(tokenApprovalsEntries.vals(), 10, Nat.equal, Hash.hash);
@@ -44,7 +42,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
     };
 
 
-    public shared query func tokenMetaData(tokenId : T.TokenId) : async ?Fish {
+    public shared query func tokenMetaData(tokenId : T.TokenId) : async ?T.TokenMetadata {
         return _tokenMetaData(tokenId);
     };
 
@@ -117,9 +115,9 @@ actor class DRC721(_name : Text, _symbol : Text) {
         _transfer(from, to, tokenId);
     };
 
-    public shared(msg) func mint(uri : Text) : async Nat {
+    public shared(msg) func mint() : async Nat {
         tokenPk += 1;
-        await _mint(msg.caller, tokenPk, uri);
+        await _mint(msg.caller, tokenPk);
         return tokenPk;
     };
 
@@ -130,7 +128,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
         return owners.get(tokenId);
     };
 
-    private func _tokenMetaData(tokenId : T.TokenId) : ?Fish {
+    private func _tokenMetaData(tokenId : T.TokenId) : ?T.TokenMetadata {
         return tokenFishes.get(tokenId);
     };
 
@@ -220,12 +218,18 @@ actor class DRC721(_name : Text, _symbol : Text) {
         }
     };
 
-    private func _mint(to : Principal, tokenId : Nat, uri : Text) : async () {
+    private func _mint(to : Principal, tokenId : Nat) : async () {
         assert not _exists(tokenId);
 
-        let fish: Fish = {
-            color_1 = await _get_random_color1();
-            color_2 = await _get_random_color2();
+        let fish: T.TokenMetadata = {
+            minted_at = Nat64.fromNat(Int.abs(Time.now()));
+            minted_by = to;
+            properties: TP.TokenProperties = {
+                color_1 = await _get_random_color1();
+                color_2 = await _get_random_color2();
+            };
+            transferred_by = null;
+            transferred_at = null;
         };
         
         _incrementBalance(to);
@@ -279,15 +283,15 @@ actor class DRC721(_name : Text, _symbol : Text) {
     };
 
     private let colors_for_1 : [Text] = [
-        "#12345", /*red*/
-        "#34567", /*blue*/
-        "#67890" /*green*/
+        "hsl(0, 70%, 50%)", /*red*/
+        "hsl(200, 50%, 50%)", /*blue*/
+        "hsl(155, 30%, 50%)" /*green*/
     ];
 
     private let colors_for_2 : [Text] = [
-        "#12345", /*red*/
-        "#34567", /*blue*/
-        "#67890" /*green*/
+        "hsl(0, 70%, 50%)", /*red*/
+        "hsl(200, 50%, 50%)", /*blue*/
+        "hsl(155, 30%, 50%)" /*green*/
     ];
 
     system func preupgrade() {

@@ -10,16 +10,21 @@
   </head>
   <body>
     <main>
-      <img src="logo.png" alt="DFINITY logo" />
+      <section id="navbuttons">
+        <button>All Tanks</button>
+        <button>My Tank</button>
+      </section>
       <form action="#">
-        <label for="uri">Enter your url: &nbsp;</label>
-        <input id="uri" alt="URI" type="text" />
         <button type="submit">Mint!</button>
       </form>
       <section id="minted">
         <p id="nftid"></p>
         <p id="nftmetadata"></p>
       </section>
+      <section id="tankcontainer">
+        <object id="tankobj" data="tank.svg"></object>
+      </section>
     </main>
+    <object id="basefishobj" data="base_fish.svg"> </object>
   </body>
 </html>
