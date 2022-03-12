@@ -6,6 +6,8 @@ import { Identity } from "@dfinity/identity";
 
 import ledgerInterfaceDid from "./ledgerInterface.did";
 
+var currentProfile;
+
 const hiddenClass = "hidden";
 const bootcamp_canister = "yeeiw-3qaaa-aaaah-qcvmq-cai";
 const backend_canister = "qo6ef-eaaaa-aaaai-abyyq-cai";
@@ -34,9 +36,18 @@ mintbtn.addEventListener("click", mintClick);
 nextrandbtn.addEventListener("click", nextRandClick);
 
 //Admin tasks
-document.getElementById("resetall").addEventListener("click", resetAll);
-document.getElementById("getlogs").addEventListener("click", getLogs);
-
+//document.getElementById("resetall").addEventListener("click", resetAll);
+//document.getElementById("getlogs").addEventListener("click", getLogs);
+/*    
+<section id="adminbuttons">
+      <p>Admin buttons will be removed or gated for production</p>
+      <button id="getlogs">Get Logs</button>
+      <button id="resetall">Reset all states</button>
+    </section>
+    <section>
+      <p id="logs"></p>
+    </section>
+*/
 async function myTankClick(e) {
   mytankbtn.disabled = true;
 
@@ -57,10 +68,16 @@ async function loadMyTank() {
   });
 
   removeAllFishesFromTank();
+  updateTankColor(currentProfile.tank_color);
   var fishes = await actor.allOwnedTokens();
   for (var i = 0; i < fishes.length; i++) {
     loadFish(fishes[i][0], fishes[i][1].properties);
   }
+}
+
+function updateTankColor(color){
+  var tank = document.getElementById("tankobj").getSVGDocument().getElementById("tank");
+  tank.getElementById("water3-gradient").children[1].setAttribute("stop-color", color);
 }
 
 async function randomTankClick(e) {
@@ -71,13 +88,15 @@ async function randomTankClick(e) {
   randombtn.disabled = false;
   randombtn.classList.add(hiddenClass);
   mytankbtn.classList.remove(hiddenClass);
-  mintbtn.classList.remove(hiddenClass);
-  nextrandbtn.classList.add(hiddenClass);
+  mintbtn.classList.add(hiddenClass);
+  nextrandbtn.classList.remove(hiddenClass);
 }
 
 async function loadRandomTank() {
   removeAllFishesFromTank();
-  var fishes = await FishTank.randomOwnerAll();
+  var results = await FishTank.randomOwnerAll();
+  updateTankColor(results[0].tank_color);
+  var fishes = results[1];
   for (var i = 0; i < fishes.length; i++) {
     loadFish(fishes[i][0], fishes[i][1].properties);
   }
@@ -87,6 +106,7 @@ async function loginClick(e) {
   loginbtn.disabled = true;
 
   await login();
+  console.log(currentProfile);
   myTankClick();
   loginbtn.disabled = false;
   loginbtn.classList.add(hiddenClass);
@@ -101,6 +121,18 @@ async function login() {
 
   if (hasAllowed) {
     console.log("Plug wallet is connected");
+    const actor = await window.ic.plug.createActor({
+      canisterId: backend_canister,
+      interfaceFactory: idlFactory,
+    });
+
+    var result = await actor.getProfile();
+    if(result.err === "NOPROFILE") {
+      result = await actor.createProfile();
+    }
+    currentProfile = result.ok;
+
+    console.log(currentProfile);
   } else {
     console.log("Plug wallet connection was refused");
   }

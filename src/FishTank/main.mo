@@ -22,12 +22,14 @@ actor class DRC721(_name : Text, _symbol : Text) {
     private stable var tokenFishEntries : [(T.TokenId, T.TokenMetadata)] = [];
     private stable var ownersEntries : [(T.TokenId, Principal)] = [];
     private stable var balancesEntries : [(Principal, Nat)] = [];
+    private stable var profilesEntries : [(Principal, T.Profile)] = [];
     private stable var tokenApprovalsEntries : [(T.TokenId, Principal)] = [];
     private stable var operatorApprovalsEntries : [(Principal, [Principal])] = [];
 
     private let tokenFishes : HashMap.HashMap<T.TokenId, T.TokenMetadata> = HashMap.fromIter<T.TokenId, T.TokenMetadata>(tokenFishEntries.vals(), 10, Nat.equal, Hash.hash);
     private let owners : HashMap.HashMap<T.TokenId, Principal> = HashMap.fromIter<T.TokenId, Principal>(ownersEntries.vals(), 10, Nat.equal, Hash.hash);
     private let balances : HashMap.HashMap<Principal, Nat> = HashMap.fromIter<Principal, Nat>(balancesEntries.vals(), 10, Principal.equal, Principal.hash);
+    private let profiles : HashMap.HashMap<Principal, T.Profile> = HashMap.fromIter<Principal, T.Profile>(profilesEntries.vals(), 10, Principal.equal, Principal.hash);
     private let tokenApprovals : HashMap.HashMap<T.TokenId, Principal> = HashMap.fromIter<T.TokenId, Principal>(tokenApprovalsEntries.vals(), 10, Nat.equal, Hash.hash);
     private let operatorApprovals : HashMap.HashMap<Principal, [Principal]> = HashMap.fromIter<Principal, [Principal]>(operatorApprovalsEntries.vals(), 10, Principal.equal, Principal.hash);
     
@@ -43,6 +45,22 @@ actor class DRC721(_name : Text, _symbol : Text) {
         return _ownerOf(tokenId);
     };
 
+    public shared query (msg) func getProfile() : async Result.Result<T.Profile,Text> {
+        if(Principal.toText(msg.caller) == "2vxsx-fae") {
+            return #err("NOANON");
+        };
+
+        return _getProfile(msg.caller);
+    };
+
+    public shared (msg) func createProfile() : async Result.Result<T.Profile, Text> {
+        if(Principal.toText(msg.caller) == "2vxsx-fae") {
+            return #err("NOANON");
+        };
+
+        return #ok(await _createProfile(msg.caller));
+    };
+
     public shared query func tokenMetaData(tokenId : T.TokenId) : async ?T.TokenMetadata {
         return _tokenMetaData(tokenId);
     };
@@ -54,7 +72,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
         return _allOwnedTokens(msg.caller);
     };
 
-    public shared func randomOwnerAll() : async [(T.TokenId, T.TokenMetadata)] {
+    public shared func randomOwnerAll() : async (T.Profile, [(T.TokenId, T.TokenMetadata)]) {
         return await _randomOwnerAll();
     };
 
@@ -146,6 +164,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
         for(k in tokenFishes.keys()) { tokenFishes.delete(k); };
         for(k in owners.keys()) { owners.delete(k); };
         for(k in balances.keys()) { balances.delete(k); };
+        for(k in profiles.keys()) { profiles.delete(k); };
         for(k in tokenApprovals.keys()) { tokenApprovals.delete(k); };
         for(k in operatorApprovals.keys()) { operatorApprovals.delete(k); };
     };
@@ -154,6 +173,26 @@ actor class DRC721(_name : Text, _symbol : Text) {
 
     private func _ownerOf(tokenId : T.TokenId) : ?Principal {
         return owners.get(tokenId);
+    };
+
+    private func _getProfile(p : Principal) : Result.Result<T.Profile, Text> {
+        switch(profiles.get(p)){
+            case(null){
+                return #err("NOPROFILE");
+            };
+            case(?pro){
+                return #ok(pro);
+            };
+        };
+
+    };
+    private func _createProfile(p: Principal) : async T.Profile {
+        let profile : T.Profile = {
+            tank_color = await _get_random_tankcolor();
+        };
+
+        profiles.put(p, profile);
+        return (profile);
     };
 
     private func _tokenMetaData(tokenId : T.TokenId) : ?T.TokenMetadata {
@@ -198,11 +237,22 @@ actor class DRC721(_name : Text, _symbol : Text) {
         return (Array.freeze(ret_arr));
     };
 
-    private func _randomOwnerAll() : async [(T.TokenId, T.TokenMetadata)] {
+    private func _randomOwnerAll() : async (T.Profile, [(T.TokenId, T.TokenMetadata)]) {
         var principalIndex : Nat = await _largerand(balances.size());
         _log("Random Principal Index: " # Nat.toText(principalIndex) # "/" # Nat.toText(balances.size()));
         let p : Principal = Iter.toArray(balances.keys())[principalIndex];
-        return _allOwnedTokens(p);
+        var profile : T.Profile = {
+            tank_color = "darkblue";
+        };
+
+        switch(profiles.get(p)){
+            case(null){
+            };
+            case(?pro){
+                profile:= pro;
+            };
+        };
+        return (profile, _allOwnedTokens(p));
     };
 
     private func _isApprovedForAll(owner : Principal, opperator : Principal) : Bool {
@@ -399,6 +449,11 @@ actor class DRC721(_name : Text, _symbol : Text) {
         return (colors_for_2[i]);
     };
 
+    private func _get_random_tankcolor() : async Text {
+        let i : Nat = await _smallrand(colors_for_tank.size());
+        return (colors_for_tank[i]);
+    };
+
     private let colors_for_1 : [Text] = [
         /*pastels*/
         "#ABDEE6",
@@ -453,10 +508,38 @@ actor class DRC721(_name : Text, _symbol : Text) {
         "#9E1C5C"
     ];
 
+        private let colors_for_tank : [Text] = [
+         /*pastels*/
+        "#ABDEE6",
+        "#CBAACB",
+        "#FFFFB5",
+        "#FFCCB6",
+        "#97C1A9",
+        /*bright*/
+        "#FFBF65",
+        "#4DD091",
+        "#FF60A8",
+        "#4DD091",
+        "#C05780",
+        /*neutral*/
+        "#74737A",
+        "#EADCC3",
+        "#DFE6E6",
+        "#1F3D51",
+        "#B4C9C7",
+        /*Gemstones*/
+        "#F12761",
+        "#005245",
+        "#00ACA5",
+        "#187B30",
+        "#9E1C5C"
+    ];
+
     system func preupgrade() {
         tokenFishEntries := Iter.toArray(tokenFishes.entries());
         ownersEntries := Iter.toArray(owners.entries());
         balancesEntries := Iter.toArray(balances.entries());
+        profilesEntries := Iter.toArray(profiles.entries());
         tokenApprovalsEntries := Iter.toArray(tokenApprovals.entries());
         operatorApprovalsEntries := Iter.toArray(operatorApprovals.entries());
     };
@@ -465,6 +548,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
         tokenFishEntries := [];
         ownersEntries := [];
         balancesEntries := [];
+        profilesEntries := [];
         tokenApprovalsEntries := [];
         operatorApprovalsEntries := [];
     };

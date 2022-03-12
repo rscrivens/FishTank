@@ -16,4 +16,8 @@ module {
         color_1             : Text;
         color_2             : Text;
     };
+
+    public type Profile = {
+        tank_color          : Text;
+    }
 }
