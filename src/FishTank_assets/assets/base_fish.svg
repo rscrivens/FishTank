@@ -68,15 +68,9 @@
                 stroke-width: 0.75px;
             }
 
-            :root {
-                --base_fish_animationtime: 30s;
-                --base_fish_animationdelay: 0s;
-                --base_fish_scale: .15;
-                --base_fish_transY: 0px;
-            }
             #base_fish g {
-                animation-duration: var(--base_fish_animationtime);
-                animation-delay: var(--base_fish_animationdelay);
+                animation-duration: 30s;
+                animation-delay: 0s;
                 animation-iteration-count: infinite;
                 animation-name: base_fish_swim;
                 animation-timing-function: linear;
@@ -84,25 +78,27 @@
 
             @keyframes base_fish_swim {
                 0% {
-                    transform: translateX(0%) translateY(var(--base_fish_transY)) scale(calc(var(--base_fish_scale))) rotateY(90deg);
+                    transform: translateX(0%) translateY(1000000px) scale(.15) rotateY(90deg);
+                    display: flex;
                 }
                 1% {
-                    transform: translateX(0%) translateY(var(--base_fish_transY)) scale(calc(var(--base_fish_scale))) rotateY(180deg);
+                    transform: translateX(0%) translateY(1000000px) scale(.15) rotateY(180deg);
                 }
                 49% {
-                    transform: translateX(100%) translateY(var(--base_fish_transY)) scale(calc(var(--base_fish_scale))) rotateY(180deg);
+                    transform: translateX(100%) translateY(1000000px) scale(.15) rotateY(180deg);
+                    display: hidden;
                 }
                 50% {
-                    transform: translateX(100%) translateY(var(--base_fish_transY)) scale(calc(var(--base_fish_scale))) rotateY(90deg);
+                    transform: translateX(100%) translateY(1000000px) scale(.15) rotateY(90deg);
                 }
                 51% {
-                    transform: translateX(100%) translateY(var(--base_fish_transY)) scale(calc(var(--base_fish_scale)));
+                    transform: translateX(100%) translateY(1000000px) scale(.15);
                 }
                 99% {
-                    transform: translateX(0%) translateY(var(--base_fish_transY)) scale(calc(var(--base_fish_scale)));
+                    transform: translateX(0%) translateY(1000000px) scale(.15);
                 }
                 100% {
-                    transform: translateX(0%) translateY(var(--base_fish_transY)) scale(calc(var(--base_fish_scale))) rotateY(90deg);
+                    transform: translateX(0%) translateY(1000000px) scale(.15) rotateY(90deg);
                 }
             }
         </style>

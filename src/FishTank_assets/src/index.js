@@ -22,14 +22,14 @@ const verifyConnection = async () => {
 const mytankbtn = document.getElementById("mytank");
 const randombtn = document.getElementById("getrandom");
 const loginbtn = document.getElementById("login");
-const logoutbtn = document.getElementById("logout");
+//const logoutbtn = document.getElementById("logout");
 const mintbtn = document.getElementById("mint");
 const nextrandbtn = document.getElementById("nextrand");
 
 mytankbtn.addEventListener("click", myTankClick);
 randombtn.addEventListener("click", randomTankClick);
 loginbtn.addEventListener("click", loginClick);
-logoutbtn.addEventListener("click", logoutClick);
+//logoutbtn.addEventListener("click", logoutClick);
 mintbtn.addEventListener("click", mintClick);
 nextrandbtn.addEventListener("click", nextRandClick);
 
@@ -87,11 +87,10 @@ async function loginClick(e) {
   loginbtn.disabled = true;
 
   await login();
-
+  myTankClick();
   loginbtn.disabled = false;
   loginbtn.classList.add(hiddenClass);
-  mytankbtn.classList.remove(hiddenClass);
-  logoutbtn.classList.remove(hiddenClass);
+  //logoutbtn.classList.remove(hiddenClass);
 }
 
 async function login() {
@@ -107,6 +106,8 @@ async function login() {
   }
 }
 
+// Disconnect doesn't seem to work keeps locking up, and I can't find documentation on it
+/*
 async function logoutClick(e) {
   logoutbtn.disabled = true;
 
@@ -116,8 +117,9 @@ async function logoutClick(e) {
 }
 
 async function logout() {
+  // Doesn't seem to work
   await window.ic.plug.disconnect();
-}
+}*/
 
 async function getLogs(e) {
   e.target.disabled = true;
@@ -132,16 +134,17 @@ async function resetAll(e) {
 }
 
 async function mintClick(e) {
-  e.target.disabled = true;
+  mintbtn.disabled = true;
 
   await mint();
 
-  e.target.disabled = false;
+  // mintbtn.disabled = false;
 }
 
 async function mint() {
+  mintbtn.innerText = "Processing Payment!";
   await verifyConnection();
-
+  
   //send funds
   const faucetActor = await window.ic.plug.createActor({
     canisterId: bootcamp_canister,
@@ -157,24 +160,32 @@ async function mint() {
     amount: { e8s: 1000000000 }
   };
 
-  var block_height = await faucetActor.send_dfx(sendArgs);
+  try{
+    var block_height = await faucetActor.send_dfx(sendArgs);
+    mintbtn.innerText = "Minting Fish!";
+    // Let minter know you sent funds and want to you NFT minted
+    const actor = await window.ic.plug.createActor({
+      canisterId: backend_canister,
+      interfaceFactory: idlFactory,
+    });
 
-  // Let minter know you sent funds and want to you NFT minted
-  const actor = await window.ic.plug.createActor({
-    canisterId: backend_canister,
-    interfaceFactory: idlFactory,
-  });
-
-  var mintResult = await actor.mint(block_height);
-  if (mintResult.ok) {
-    var fishId = mintResult.ok[0];
-    var fish = mintResult.ok[1];
-    loadFish(fishId, fish.properties);
-    document.getElementById("nftmetadata").innerText = `Minted at: ${fish.minted_at}
-      Minted by: ${fish.minted_by}
-      Color 1: ${fish.properties.color_1}
-      Color 2: ${fish.properties.color_2}`;
+    var mintResult = await actor.mint(block_height);
+    if (mintResult.ok) {
+      mintbtn.innerText = "Congrats on new Fish!";
+      var fishId = mintResult.ok[0];
+      var fish = mintResult.ok[1];
+      loadFish(fishId, fish.properties);
+      document.getElementById("nftmetadata").innerText = `Minted at: ${fish.minted_at}
+        Minted by: ${fish.minted_by}
+        Color 1: ${fish.properties.color_1}
+        Color 2: ${fish.properties.color_2}`;
+    }
+  } catch(e){
+    console.log(e);
+    mintbtn.innerText = "Failed to Mint!";
   }
+
+  setTimeout(()=> {mintbtn.innerText = "Mint!"; mintbtn.disabled = false;}, 1000);
 }
 
 async function nextRandClick(e) {
@@ -205,31 +216,33 @@ function loadFish(fishId, properties) {
   var basefish = document.getElementById("basefishobj").getSVGDocument().getElementById("base_fish");
   let fish = basefish.cloneNode(true);
 
-  let animationDelay = Math.random() * 8;
-  let animationTime = (Math.random() * 10) + 30;
+  let animationDelay = Math.random() * 5;
+  let animationTime = (Math.random() * 15) + 30;
   let y = 0;
   while (y < .1 || y > .9) {
     y = Math.random();
   }
   y = y * 1080;
-  
-  let fishPrefix = "fish_" + fishId;
-  
-  fish.innerHTML = fish.innerHTML.replaceAll("--base_fish_animationtime: 30s;", `--base_fish_animationtime: ${animationTime}s;`);
-  fish.innerHTML = fish.innerHTML.replaceAll("--base_fish_animationdelay: 0s;", `--base_fish_animationdelay: ${animationDelay}s;`);
-  fish.innerHTML = fish.innerHTML.replaceAll("--base_fish_transY: 0px;", `--base_fish_transY: ${y}px;`);
-  fish.innerHTML = fish.innerHTML.replaceAll("base_fish", fishPrefix);
 
+  let fishPrefix = "fish_" + fishId;
+  var innerhtml = fish.innerHTML;
+  innerhtml = innerhtml.replaceAll("animation-duration: 30s;", `animation-duration: ${animationTime}s;`);
+  innerhtml = innerhtml.replaceAll("animation-delay: 0s;", `animation-delay: ${animationDelay}s;`);
+  innerhtml = innerhtml.replaceAll("translateY(1000000px)", `translateY(${y}px)`);
+  innerhtml = innerhtml.replaceAll("base_fish", fishPrefix);
+  fish.innerHTML = innerhtml;
+
+  tank.appendChild(fish);
   fish.id = fishPrefix;
   fish.getElementById(fishPrefix + "_linear-gradient").children[0].setAttribute("stop-color", properties.color_1);
   fish.getElementById(fishPrefix + "_linear-gradient").children[2].setAttribute("stop-color", properties.color_2);
 
-  fish.getElementById(fishPrefix + "_radial-gradient").children[1].setAttribute("stop-color", properties.color_1);  
+  fish.getElementById(fishPrefix + "_radial-gradient").children[1].setAttribute("stop-color", properties.color_1);
 
-  fish.getElementById(fishPrefix + "_radial-gradient-2").children[0].setAttribute("stop-color", properties.color_1);  
-  fish.getElementById(fishPrefix + "_radial-gradient-2").children[3].setAttribute("stop-color", properties.color_2);  
-  fish.getElementById(fishPrefix + "_radial-gradient-2").children[4].setAttribute("stop-color", properties.color_1);  
-  fish.getElementById(fishPrefix + "_radial-gradient-2").children[5].setAttribute("stop-color", properties.color_2);  
+  fish.getElementById(fishPrefix + "_radial-gradient-2").children[0].setAttribute("stop-color", properties.color_1);
+  fish.getElementById(fishPrefix + "_radial-gradient-2").children[3].setAttribute("stop-color", properties.color_2);
+  fish.getElementById(fishPrefix + "_radial-gradient-2").children[4].setAttribute("stop-color", properties.color_1);
+  fish.getElementById(fishPrefix + "_radial-gradient-2").children[5].setAttribute("stop-color", properties.color_2);
 
   fish.getElementById("Layer_2").addEventListener("click", clickedOnFish);
   let fishBGRule = `#${fishPrefix} g:first-of-type rect{
@@ -237,21 +250,22 @@ function loadFish(fishId, properties) {
       }`;
 
   let fishPartsRule = `#${fishPrefix} g {
-          transform: translateY(${y}px) scale(${.15}) rotateY(90deg);
+          transform: translateY(${y}px) translateX(-13%) scale(${.15});
       }`;
 
   fishesCSS.insertRule(fishBGRule, 0);
   fishesCSS.insertRule(fishPartsRule, 0);
-  tank.appendChild(fish);
   triggerDelayedRedraw();
 }
 
 function triggerDelayedRedraw() {
   setTimeout(() => {
-    document.getElementById("tankobj").getSVGDocument().getElementById("tank").style.display = "none";
+    document.getElementById("tankobj").getSVGDocument().getElementById("tank").style.display = "flex";
+    console.log("first timeout");
   }, 500);
   setTimeout(() => {
     document.getElementById("tankobj").getSVGDocument().getElementById("tank").style.display = "";
+    console.log("second timeout");
   }, 1000);
 }
 
@@ -292,3 +306,5 @@ async function authenticateViaII() {
     },
   });
 }
+
+setTimeout(nextRandClick, 500);
