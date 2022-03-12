@@ -400,15 +400,57 @@ actor class DRC721(_name : Text, _symbol : Text) {
     };
 
     private let colors_for_1 : [Text] = [
-        "hsl(0, 70%, 50%)", /*red*/
-        "hsl(200, 50%, 50%)", /*blue*/
-        "hsl(155, 30%, 50%)" /*green*/
+        /*pastels*/
+        "#ABDEE6",
+        "#CBAACB",
+        "#FFFFB5",
+        "#FFCCB6",
+        "#97C1A9",
+        /*bright*/
+        "#FFBF65",
+        "#4DD091",
+        "#FF60A8",
+        "#4DD091",
+        "#C05780",
+        /*neutral*/
+        "#74737A",
+        "#EADCC3",
+        "#DFE6E6",
+        "#1F3D51",
+        "#B4C9C7",
+        /*Gemstones*/
+        "#F12761",
+        "#005245",
+        "#00ACA5",
+        "#187B30",
+        "#9E1C5C"
     ];
 
     private let colors_for_2 : [Text] = [
-        "hsl(0, 70%, 50%)", /*red*/
-        "hsl(200, 50%, 50%)", /*blue*/
-        "hsl(155, 30%, 50%)" /*green*/
+         /*pastels*/
+        "#ABDEE6",
+        "#CBAACB",
+        "#FFFFB5",
+        "#FFCCB6",
+        "#97C1A9",
+        /*bright*/
+        "#FFBF65",
+        "#4DD091",
+        "#FF60A8",
+        "#4DD091",
+        "#C05780",
+        /*neutral*/
+        "#74737A",
+        "#EADCC3",
+        "#DFE6E6",
+        "#1F3D51",
+        "#B4C9C7",
+        /*Gemstones*/
+        "#F12761",
+        "#005245",
+        "#00ACA5",
+        "#187B30",
+        "#9E1C5C"
     ];
 
     system func preupgrade() {
