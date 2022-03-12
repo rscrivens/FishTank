@@ -9,6 +9,10 @@
                 fill: url(#water2-gradient);
             }
 
+            .water3 {
+                fill: url(#water3-gradient);
+            }
+
             .selectedfish g {
                 transform: none !important;
                 animation: none !important;
@@ -24,16 +28,24 @@
                 <stop offset="0" stop-color="#018bb4"></stop>
                 <stop offset="1" stop-color="#041b51"></stop>
             </radialGradient>
-            <radialGradient id="water2-gradient" cx="960" cy="-2100" r="3000" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="#5ddbfd"></stop>
-                <stop offset=".75" stop-color="#81ebf9"></stop>
-            <stop offset=".8" stop-color="#81ebf9" stop-opacity="0"></stop></radialGradient>
+            <radialGradient xmlns="http://www.w3.org/2000/svg" id="water2-gradient" cx="960" cy="-2100" r="3000" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#5ddbfd"/>
+                <stop offset=".72" stop-color="#81ebf9"/>
+            <stop offset=".8" stop-color="#81ebf9" stop-opacity="0"/></radialGradient>
+            <radialGradient xmlns="http://www.w3.org/2000/svg" id="water3-gradient" cx="960" cy="3200" r="3000" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="darkblue"/>
+                <stop offset=".75" stop-color="green" stop-opacity=".5"/>
+                <stop offset=".8" stop-color="#041b51" stop-opacity="0"/>
+            </radialGradient>
         </defs>
         <g id="water1">
             <rect class="water1" width="1920" height="1080"></rect>
         </g>
         <g id="water2">
             <rect class="water2" width="1920" height="1080"></rect>
+        </g>
+        <g id="water3">
+            <rect class="water3" width="1920" height="1080"></rect>
         </g>
 
     </svg>
