@@ -39,7 +39,7 @@ nextrandbtn.addEventListener("click", nextRandClick);
 //document.getElementById("resetall").addEventListener("click", resetAll);
 //document.getElementById("getlogs").addEventListener("click", getLogs);
 /*    
-<section id="adminbuttons">
+    <section id="adminbuttons">
       <p>Admin buttons will be removed or gated for production</p>
       <button id="getlogs">Get Logs</button>
       <button id="resetall">Reset all states</button>
@@ -210,7 +210,8 @@ async function mint() {
       document.getElementById("nftmetadata").innerText = `Minted at: ${fish.minted_at}
         Minted by: ${fish.minted_by}
         Color 1: ${fish.properties.color_1}
-        Color 2: ${fish.properties.color_2}`;
+        Color 2: ${fish.properties.color_2}
+        Color 3: ${fish.properties.color_3}`;
     }
   } catch(e){
     console.log(e);
@@ -267,6 +268,7 @@ function loadFish(fishId, properties) {
   tank.appendChild(fish);
   fish.id = fishPrefix;
   fish.getElementById(fishPrefix + "_linear-gradient").children[0].setAttribute("stop-color", properties.color_1);
+  fish.getElementById(fishPrefix + "_linear-gradient").children[1].setAttribute("stop-color", properties.color_3);
   fish.getElementById(fishPrefix + "_linear-gradient").children[2].setAttribute("stop-color", properties.color_2);
 
   fish.getElementById(fishPrefix + "_radial-gradient").children[1].setAttribute("stop-color", properties.color_1);

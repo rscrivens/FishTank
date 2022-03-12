@@ -15,6 +15,7 @@ module {
     public type TokenProps = {
         color_1             : Text;
         color_2             : Text;
+        color_3             : Text;
     };
 
     public type Profile = {

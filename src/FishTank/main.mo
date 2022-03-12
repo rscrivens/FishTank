@@ -214,6 +214,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
                         properties: T.TokenProps = {
                             color_1 = "";
                             color_2 = "";
+                            color_3 = "";
                         };
                         transferred_by = null;
                         transferred_at = null;
@@ -381,6 +382,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
             properties: T.TokenProps = {
                 color_1 = await _get_random_color1();
                 color_2 = await _get_random_color2();
+                color_3 = await _get_random_color3();
             };
             transferred_by = null;
             transferred_at = null;
@@ -449,6 +451,11 @@ actor class DRC721(_name : Text, _symbol : Text) {
         return (colors_for_2[i]);
     };
 
+    private func _get_random_color3() : async Text {
+        let i : Nat = await _smallrand(colors_for_3.size());
+        return (colors_for_3[i]);
+    };
+
     private func _get_random_tankcolor() : async Text {
         let i : Nat = await _smallrand(colors_for_tank.size());
         return (colors_for_tank[i]);
@@ -482,6 +489,33 @@ actor class DRC721(_name : Text, _symbol : Text) {
     ];
 
     private let colors_for_2 : [Text] = [
+         /*pastels*/
+        "#ABDEE6",
+        "#CBAACB",
+        "#FFFFB5",
+        "#FFCCB6",
+        "#97C1A9",
+        /*bright*/
+        "#FFBF65",
+        "#4DD091",
+        "#FF60A8",
+        "#4DD091",
+        "#C05780",
+        /*neutral*/
+        "#74737A",
+        "#EADCC3",
+        "#DFE6E6",
+        "#1F3D51",
+        "#B4C9C7",
+        /*Gemstones*/
+        "#F12761",
+        "#005245",
+        "#00ACA5",
+        "#187B30",
+        "#9E1C5C"
+    ];
+
+    private let colors_for_3 : [Text] = [
          /*pastels*/
         "#ABDEE6",
         "#CBAACB",
