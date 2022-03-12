@@ -13,12 +13,12 @@ import Option "mo:base/Option";
 import Principal "mo:base/Principal";
 import Random "mo:base/Random";
 import T "dip721_types";
-import TP "token_prop_type";
 import Time "mo:base/Time";
+import Result "mo:base/Result";
 
 actor class DRC721(_name : Text, _symbol : Text) {
     private stable var tokenPk : Nat = 0;
-
+    private stable var workaround : [T.TokenProps] = [];
     private stable var tokenFishEntries : [(T.TokenId, T.TokenMetadata)] = [];
     private stable var ownersEntries : [(T.TokenId, Principal)] = [];
     private stable var balancesEntries : [(Principal, Nat)] = [];
@@ -33,6 +33,8 @@ actor class DRC721(_name : Text, _symbol : Text) {
     
     private var finite : Random.Finite = Random.Finite(Blob.fromArray([]));
 
+    private var logs : Text = "";
+
     public shared func balanceOf(p : Principal) : async ?Nat {
         return balances.get(p);
     };
@@ -41,9 +43,19 @@ actor class DRC721(_name : Text, _symbol : Text) {
         return _ownerOf(tokenId);
     };
 
-
     public shared query func tokenMetaData(tokenId : T.TokenId) : async ?T.TokenMetadata {
         return _tokenMetaData(tokenId);
+    };
+
+    public shared query (msg) func allOwnedTokens() : async [(T.TokenId, T.TokenMetadata)] {
+        if(Principal.toText(msg.caller) == "2vxsx-fae") {
+            return [];
+        };
+        return _allOwnedTokens(msg.caller);
+    };
+
+    public shared func randomOwnerAll() : async [(T.TokenId, T.TokenMetadata)] {
+        return await _randomOwnerAll();
     };
 
     public shared query func name() : async Text {
@@ -61,6 +73,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
     public shared(msg) func approve(to : Principal, tokenId : T.TokenId) : async () {
         switch(_ownerOf(tokenId)) {
             case (?owner) {
+                
                  assert to != owner;
                  assert msg.caller == owner or _isApprovedForAll(owner, msg.caller);
                  _approve(to, tokenId);
@@ -115,12 +128,27 @@ actor class DRC721(_name : Text, _symbol : Text) {
         _transfer(from, to, tokenId);
     };
 
-    public shared(msg) func mint() : async Nat {
-        tokenPk += 1;
-        await _mint(msg.caller, tokenPk);
-        return tokenPk;
+    public shared(msg) func mint(block_height: Nat64) : async Result.Result<(Nat, T.TokenMetadata),Text>{
+        if(Principal.toText(msg.caller) == "2vxsx-fae") {
+            return #err("You need to log in to mint.");
+        };
+
+        _log("Recieved block_height: " # Nat64.toText(block_height));
+        _log("Trying to mint: " # Principal.toText(msg.caller));
+        return await _mint(block_height, msg.caller);
     };
 
+    public shared query func getLogs(): async Text{
+        return logs;
+    };
+
+    public shared func resetAllState(): async () {
+        for(k in tokenFishes.keys()) { tokenFishes.delete(k); };
+        for(k in owners.keys()) { owners.delete(k); };
+        for(k in balances.keys()) { balances.delete(k); };
+        for(k in tokenApprovals.keys()) { tokenApprovals.delete(k); };
+        for(k in operatorApprovals.keys()) { operatorApprovals.delete(k); };
+    };
 
     // Internal
 
@@ -130,6 +158,51 @@ actor class DRC721(_name : Text, _symbol : Text) {
 
     private func _tokenMetaData(tokenId : T.TokenId) : ?T.TokenMetadata {
         return tokenFishes.get(tokenId);
+    };
+
+    private func _allOwnedTokens(p : Principal) : [(T.TokenId, T.TokenMetadata)] {
+        var ret_arr: [var (T.TokenId, T.TokenMetadata)] = [var];
+        switch(balances.get(p)){
+            case(null){
+                return [];
+            };
+            case(?n){
+                ret_arr := Array.init<(T.TokenId, T.TokenMetadata)>(n, (
+                    0,
+                    {
+                        minted_at = 0;
+                        minted_by = p;
+                        properties: T.TokenProps = {
+                            color_1 = "";
+                            color_2 = "";
+                        };
+                        transferred_by = null;
+                        transferred_at = null;
+                    })
+                );
+            };
+        };
+            
+        var count: Nat = 0;
+        Iter.iterate(owners.entries(), func((k : T.TokenId, v : Principal), index: Nat) {
+            if(Principal.equal(p,v)){
+                switch(tokenFishes.get(k)){
+                    case(null){};
+                    case(?md){
+                        ret_arr[count] := (k,md);
+                        count+=1;
+                    };
+                };
+            };
+        });
+        return (Array.freeze(ret_arr));
+    };
+
+    private func _randomOwnerAll() : async [(T.TokenId, T.TokenMetadata)] {
+        var principalIndex : Nat = await _largerand(balances.size());
+        _log("Random Principal Index: " # Nat.toText(principalIndex) # "/" # Nat.toText(balances.size()));
+        let p : Principal = Iter.toArray(balances.keys())[principalIndex];
+        return _allOwnedTokens(p);
     };
 
     private func _isApprovedForAll(owner : Principal, opperator : Principal) : Bool {
@@ -218,13 +291,44 @@ actor class DRC721(_name : Text, _symbol : Text) {
         }
     };
 
-    private func _mint(to : Principal, tokenId : Nat) : async () {
-        assert not _exists(tokenId);
+    let ledgerCanisterId : Text = "yeeiw-3qaaa-aaaah-qcvmq-cai";
+    type sendparams = {
+            to : Text;
+            fee : {e8s: Nat64};
+            memo : Nat;
+            from_subaccount : ?Nat8;
+            created_at_time : ?{ timestamp_nanos : Nat64 };
+            amount : {e8s: Nat64};
+        };
 
+    
+
+    private func _mint(block_height: Nat64, to : Principal) : async Result.Result<(Nat, T.TokenMetadata), Text> {
+        /*let AMOUNT_X_10: Nat64 = 10;
+        let PROPER_FEEE: Nat64 = 1;
+        let ledger_canister : actor {
+            send_dfx : (sendparams) -> async Nat64;
+        } = to(ledgerCanisterId);
+
+        let block : Nat64 = await ledger_canister.send_dfx({
+            memo=0; 
+            amount={
+                e8s=AMOUNT_X_10;
+            };
+            fee={
+                e8s=PROPER_FEEE;
+                };
+            from_subaccount=null;
+            to="ltboi-5ke46-b3jbd-phuth-6k6xe-iitgq-hsxqn-ik4ty-z5gdj-sgtf7-5qe";
+            created_at_time=null;
+            });
+        _log("Transaction block:" # Nat64.toText(block));*/
+        tokenPk += 1;
+        assert not _exists(tokenPk);
         let fish: T.TokenMetadata = {
             minted_at = Nat64.fromNat(Int.abs(Time.now()));
             minted_by = to;
-            properties: TP.TokenProperties = {
+            properties: T.TokenProps = {
                 color_1 = await _get_random_color1();
                 color_2 = await _get_random_color2();
             };
@@ -233,8 +337,9 @@ actor class DRC721(_name : Text, _symbol : Text) {
         };
         
         _incrementBalance(to);
-        owners.put(tokenId, to);
-        tokenFishes.put(tokenId, fish);
+        owners.put(tokenPk, to);
+        tokenFishes.put(tokenPk, fish);
+        return #ok(tokenPk, fish);
     };
 
     private func _burn(tokenId : Nat) {
@@ -246,7 +351,19 @@ actor class DRC721(_name : Text, _symbol : Text) {
         ignore owners.remove(tokenId);
     };
 
-    private func _rand(max: Nat) : async Nat{
+    private func _log(msg: Text) : () {
+        logs:= logs # "\n" # msg;
+    };
+
+    private func _largerand(max: Nat) : async Nat{
+        return await _rand(max, 31, 2147483647);
+    };
+
+    private func _smallrand(max: Nat) : async Nat{
+        return await _rand(max, 7, 127);
+    };
+
+    private func _rand(max: Nat, range_p: Nat8, maxRand: Float) : async Nat{
         let range_p : Nat8 = 7;
 
         var next: ?Nat = finite.range(range_p);
@@ -273,12 +390,12 @@ actor class DRC721(_name : Text, _symbol : Text) {
     };
 
     private func _get_random_color1() : async Text {
-        let i : Nat = await _rand(colors_for_1.size());
+        let i : Nat = await _smallrand(colors_for_1.size());
         return (colors_for_1[i]);
     };
 
     private func _get_random_color2() : async Text {
-        let i : Nat = await _rand(colors_for_2.size());
+        let i : Nat = await _smallrand(colors_for_2.size());
         return (colors_for_2[i]);
     };
 
@@ -300,7 +417,6 @@ actor class DRC721(_name : Text, _symbol : Text) {
         balancesEntries := Iter.toArray(balances.entries());
         tokenApprovalsEntries := Iter.toArray(tokenApprovals.entries());
         operatorApprovalsEntries := Iter.toArray(operatorApprovals.entries());
-        
     };
 
     system func postupgrade() {

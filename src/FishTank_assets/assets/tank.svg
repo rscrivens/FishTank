@@ -8,6 +8,16 @@
             .water2 {
                 fill: url(#water2-gradient);
             }
+
+            .selectedfish g {
+                transform: none !important;
+                animation: none !important;
+            }
+
+            g#Layer_2 {
+                cursor: pointer;
+            }
+            
         </style>
         <defs>
             <radialGradient id="water1-gradient" cx="960" cy="540" r="1000" gradientUnits="userSpaceOnUse">

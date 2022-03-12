@@ -1,30 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>FishTank</title>
-    <base href="/" />
-    <link rel="icon" href="favicon.ico" />
-    <link type="text/css" rel="stylesheet" href="main.css" />
-  </head>
-  <body>
-    <main>
-      <section id="navbuttons">
-        <button>All Tanks</button>
-        <button>My Tank</button>
-      </section>
-      <form action="#">
-        <button type="submit">Mint!</button>
-      </form>
-      <section id="minted">
-        <p id="nftid"></p>
-        <p id="nftmetadata"></p>
-      </section>
-      <section id="tankcontainer">
-        <object id="tankobj" data="tank.svg"></object>
-      </section>
-    </main>
-    <object id="basefishobj" data="base_fish.svg"> </object>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>FishTank</title>
+  <base href="/" />
+  <link rel="icon" href="favicon.ico" />
+  <link type="text/css" rel="stylesheet" href="main.css" />
+</head>
+
+<body>
+  <main>
+    <section id="navbuttons">
+      <button id="getrandom" class="nav hidden">Random tank</button>
+      <button id="mytank" class="nav hidden">My Tank</button>
+      <button id="login" class="nav">Log in</button>
+      <button id="logout" class="nav hidden">Log out</button>
+    </section>
+    <section id="tankcontainer">
+      <object id="tankobj" data="tank.svg"></object>
+    </section>
+    <section>
+      <button id="mint" class="action hidden">Mint!</button>
+      <button id="nextrand" class="action">Next Tank</button>
+    </section>
+    <section id="minted">
+      <p id="nftid"></p>
+      <p id="nftmetadata"></p>
+    </section>
+    <section id="adminbuttons">
+      <p>Admin buttons will be removed or gated for production</p>
+      <button id="getlogs">Get Logs</button>
+      <button id="resetall">Reset all states</button>
+    </section>
+    <section>
+      <p id="logs"></p>
+    </section>
+  </main>
+  <object id="basefishobj" data="base_fish.svg"> </object>
+</body>
+
 </html>
