@@ -223,13 +223,21 @@ function loadFish(fishId, properties) {
   fish.id = fishPrefix;
   fish.getElementById(fishPrefix + "_linear-gradient").children[0].setAttribute("stop-color", properties.color_1);
   fish.getElementById(fishPrefix + "_linear-gradient").children[2].setAttribute("stop-color", properties.color_2);
+
+  fish.getElementById(fishPrefix + "_radial-gradient").children[1].setAttribute("stop-color", properties.color_1);  
+
+  fish.getElementById(fishPrefix + "_radial-gradient-2").children[0].setAttribute("stop-color", properties.color_1);  
+  fish.getElementById(fishPrefix + "_radial-gradient-2").children[3].setAttribute("stop-color", properties.color_2);  
+  fish.getElementById(fishPrefix + "_radial-gradient-2").children[4].setAttribute("stop-color", properties.color_1);  
+  fish.getElementById(fishPrefix + "_radial-gradient-2").children[5].setAttribute("stop-color", properties.color_2);  
+
   fish.getElementById("Layer_2").addEventListener("click", clickedOnFish);
   let fishBGRule = `#${fishPrefix} g:first-of-type rect{
           fill: transparent;
       }`;
 
   let fishPartsRule = `#${fishPrefix} g {
-          transform: translateY(${y}px) scale(${.1}) rotateY(90deg);
+          transform: translateY(${y}px) scale(${.15}) rotateY(90deg);
       }`;
 
   fishesCSS.insertRule(fishBGRule, 0);
@@ -239,11 +247,12 @@ function loadFish(fishId, properties) {
 }
 
 function triggerDelayedRedraw() {
-  document.getElementById("tankobj").getSVGDocument().getElementById("tank").style.display = "none";
   setTimeout(() => {
-    var tanksvg = document.getElementById("tankobj").getSVGDocument().getElementById("tank");
-    tanksvg.style.display = "";
+    document.getElementById("tankobj").getSVGDocument().getElementById("tank").style.display = "none";
   }, 500);
+  setTimeout(() => {
+    document.getElementById("tankobj").getSVGDocument().getElementById("tank").style.display = "";
+  }, 1000);
 }
 
 function removeAllFishesFromTank() {

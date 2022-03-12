@@ -71,7 +71,7 @@
             :root {
                 --base_fish_animationtime: 30s;
                 --base_fish_animationdelay: 0s;
-                --base_fish_scale: .1;
+                --base_fish_scale: .15;
                 --base_fish_transY: 0px;
             }
             #base_fish g {
@@ -109,21 +109,21 @@
         <linearGradient id="base_fish_linear-gradient" x1="882.49" y1="774.22" x2="1181.36" y2="774.22"
             gradientUnits="userSpaceOnUse">
             <stop offset="0" stop-color="#fab149" />
-            <stop offset="0.43" stop-color="#f68d39" />
-            <stop offset="1" stop-color="#f26025" />
+            <stop offset="0.43" stop-color="white" stop-opacity=".8"/>
+            <stop offset="1" stop-color="#f26025" stop-opacity=".5"/>
         </linearGradient>
         <linearGradient id="base_fish_linear-gradient-2" x1="480.76" y1="293.66" x2="1030.7" y2="293.66"
             xlink:href="#base_fish_linear-gradient" />
         <linearGradient id="base_fish_linear-gradient-3" x1="1173.94" y1="460.6" x2="1706.71" y2="460.6"
             xlink:href="#base_fish_linear-gradient" />
         <radialGradient id="base_fish_radial-gradient" cx="754.09" cy="542.17" r="375.41" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#fbbe66" />
+            <stop offset="0" stop-color="white" />
             <stop offset="0.86" stop-color="#fab149" />
         </radialGradient>
         <radialGradient id="base_fish_radial-gradient-2" cx="532.79" cy="535.02" r="144.96" gradientUnits="userSpaceOnUse">
             <stop offset="0" stop-color="#fab149" />
-            <stop offset="0.2" stop-color="#faad47" />
-            <stop offset="0.38" stop-color="#f9a242" />
+            <stop offset="0.2" stop-color="white" />
+            <stop offset="0.38" stop-color="white" />
             <stop offset="0.56" stop-color="#f78f3a" />
             <stop offset="0.74" stop-color="#f4742e" />
             <stop offset="0.85" stop-color="#f26025" />
