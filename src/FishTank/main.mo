@@ -25,6 +25,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
     private stable var profilesEntries : [(Principal, T.Profile)] = [];
     private stable var tokenApprovalsEntries : [(T.TokenId, Principal)] = [];
     private stable var operatorApprovalsEntries : [(Principal, [Principal])] = [];
+    private stable var goldfishAirDropEntries : [(Principal, Bool)] = [];
 
     private let tokenFishes : HashMap.HashMap<T.TokenId, T.TokenMetadata> = HashMap.fromIter<T.TokenId, T.TokenMetadata>(tokenFishEntries.vals(), 10, Nat.equal, Hash.hash);
     private let owners : HashMap.HashMap<T.TokenId, Principal> = HashMap.fromIter<T.TokenId, Principal>(ownersEntries.vals(), 10, Nat.equal, Hash.hash);
@@ -32,7 +33,8 @@ actor class DRC721(_name : Text, _symbol : Text) {
     private let profiles : HashMap.HashMap<Principal, T.Profile> = HashMap.fromIter<Principal, T.Profile>(profilesEntries.vals(), 10, Principal.equal, Principal.hash);
     private let tokenApprovals : HashMap.HashMap<T.TokenId, Principal> = HashMap.fromIter<T.TokenId, Principal>(tokenApprovalsEntries.vals(), 10, Nat.equal, Hash.hash);
     private let operatorApprovals : HashMap.HashMap<Principal, [Principal]> = HashMap.fromIter<Principal, [Principal]>(operatorApprovalsEntries.vals(), 10, Principal.equal, Principal.hash);
-    
+    private let goldfishAirDrops : HashMap.HashMap<Principal, Bool> = HashMap.fromIter<Principal, Bool>(goldfishAirDropEntries.vals(), 10, Principal.equal, Principal.hash);
+
     private var finite : Random.Finite = Random.Finite(Blob.fromArray([]));
 
     private var logs : Text = "";
@@ -61,18 +63,30 @@ actor class DRC721(_name : Text, _symbol : Text) {
         return #ok(await _createProfile(msg.caller));
     };
 
+    public shared(msg) func tradeGoldfish() : async Result.Result<Text, Text> {
+        if(Principal.toText(msg.caller) == "2vxsx-fae") {
+            return #err("NOANON");
+        };
+
+        return await _tradeGoldfish(msg.caller);
+    };
+
+    public shared func airdropGoldfish(rate:Float) : async () {
+        return await _airdropGoldfish(rate);
+    };
+
     public shared query func tokenMetaData(tokenId : T.TokenId) : async ?T.TokenMetadata {
         return _tokenMetaData(tokenId);
     };
 
-    public shared query (msg) func allOwnedTokens() : async [(T.TokenId, T.TokenMetadata)] {
+    public shared query (msg) func allOwnedTokens() : async {fish:[(T.TokenId, T.TokenMetadata)]; hasGoldfish:Bool} {
         if(Principal.toText(msg.caller) == "2vxsx-fae") {
-            return [];
+            return {fish=[]; hasGoldfish=false};
         };
         return _allOwnedTokens(msg.caller);
     };
 
-    public shared func randomOwnerAll() : async (T.Profile, [(T.TokenId, T.TokenMetadata)]) {
+    public shared func randomOwnerAll() : async {profile:T.Profile;fish:[(T.TokenId, T.TokenMetadata)]; hasGoldfish:Bool} {
         return await _randomOwnerAll();
     };
 
@@ -167,6 +181,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
         for(k in profiles.keys()) { profiles.delete(k); };
         for(k in tokenApprovals.keys()) { tokenApprovals.delete(k); };
         for(k in operatorApprovals.keys()) { operatorApprovals.delete(k); };
+        for(k in goldfishAirDrops.keys()) { goldfishAirDrops.delete(k); };
     };
 
     // Internal
@@ -186,6 +201,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
         };
 
     };
+
     private func _createProfile(p: Principal) : async T.Profile {
         let profile : T.Profile = {
             tank_color = await _get_random_tankcolor();
@@ -195,15 +211,57 @@ actor class DRC721(_name : Text, _symbol : Text) {
         return (profile);
     };
 
+    private func _airdropGoldfish(ad_percent: Float) : async (){
+        // need to clear old airdrop hash
+        for(k in goldfishAirDrops.keys()) { goldfishAirDrops.delete(k); };
+
+        // get updated count to be dropped
+        var airdropcount : Nat = Int.abs(Float.toInt(Float.ceil(Float.fromInt(profiles.size()) * ad_percent)));
+
+        let p_array = Iter.toArray(balances.keys());
+        while ( goldfishAirDrops.size() < airdropcount) {
+            var principalIndex : Nat = await _largerand(p_array.size());
+            let p : Principal = p_array[principalIndex];
+            switch(goldfishAirDrops.get(p)){
+                case(null){
+                    goldfishAirDrops.put(p, true);
+                };
+                case(?ad){
+                    _log("Duplicate airdrop profile generated:" # Nat.toText(principalIndex));
+                };
+            };
+        };
+    };
+
+    private func _tradeGoldfish(p : Principal) : async Result.Result<Text, Text> {
+        var airDrop: ?Bool = goldfishAirDrops.get(p);
+        switch(airDrop){
+            case(null){
+                return #err("You don't have a goldfish!");
+            };
+            case(?aD){
+                if(aD == false){
+                    return #err("You already claimed your goldfish!");
+                };
+
+                // claim the fish
+                goldfishAirDrops.put(p,false);
+                // transfer the coins
+
+                return #ok("You've recieved coins");
+            };
+        };
+    };
+
     private func _tokenMetaData(tokenId : T.TokenId) : ?T.TokenMetadata {
         return tokenFishes.get(tokenId);
     };
 
-    private func _allOwnedTokens(p : Principal) : [(T.TokenId, T.TokenMetadata)] {
+    private func _allOwnedTokens(p : Principal) : {fish:[(T.TokenId, T.TokenMetadata)]; hasGoldfish: Bool} {
         var ret_arr: [var (T.TokenId, T.TokenMetadata)] = [var];
         switch(balances.get(p)){
             case(null){
-                return [];
+                return {fish=[]; hasGoldfish=false};
             };
             case(?n){
                 ret_arr := Array.init<(T.TokenId, T.TokenMetadata)>(n, (
@@ -235,15 +293,25 @@ actor class DRC721(_name : Text, _symbol : Text) {
                 };
             };
         });
-        return (Array.freeze(ret_arr));
+
+        var has_gold_fish : Bool = false;
+        
+        switch(goldfishAirDrops.get(p)){
+            case(null){};
+            case(?hasgf){
+                has_gold_fish:= hasgf;
+            };
+        };
+        return {fish=(Array.freeze(ret_arr)); hasGoldfish=has_gold_fish};
     };
 
-    private func _randomOwnerAll() : async (T.Profile, [(T.TokenId, T.TokenMetadata)]) {
+    private func _randomOwnerAll() : async {profile:T.Profile; fish: [(T.TokenId, T.TokenMetadata)];hasGoldfish: Bool} {
         var principalIndex : Nat = await _largerand(balances.size());
         _log("Random Principal Index: " # Nat.toText(principalIndex) # "/" # Nat.toText(balances.size()));
         let p : Principal = Iter.toArray(balances.keys())[principalIndex];
         var profile : T.Profile = {
-            tank_color = "darkblue";
+            tank_color = "";
+            has_gold_fish = false;
         };
 
         switch(profiles.get(p)){
@@ -253,7 +321,8 @@ actor class DRC721(_name : Text, _symbol : Text) {
                 profile:= pro;
             };
         };
-        return (profile, _allOwnedTokens(p));
+        let all_tokens = _allOwnedTokens(p);
+        return {profile=profile; fish=all_tokens.fish; hasGoldfish=all_tokens.hasGoldfish};
     };
 
     private func _isApprovedForAll(owner : Principal, opperator : Principal) : Bool {
@@ -576,6 +645,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
         profilesEntries := Iter.toArray(profiles.entries());
         tokenApprovalsEntries := Iter.toArray(tokenApprovals.entries());
         operatorApprovalsEntries := Iter.toArray(operatorApprovals.entries());
+        goldfishAirDropEntries := Iter.toArray(goldfishAirDrops.entries());
     };
 
     system func postupgrade() {
@@ -585,5 +655,6 @@ actor class DRC721(_name : Text, _symbol : Text) {
         profilesEntries := [];
         tokenApprovalsEntries := [];
         operatorApprovalsEntries := [];
+        goldfishAirDropEntries := [];
     };
 };
