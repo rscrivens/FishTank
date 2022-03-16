@@ -10,7 +10,7 @@ var currentProfile;
 
 const hiddenClass = "hidden";
 const bootcamp_canister = "yeeiw-3qaaa-aaaah-qcvmq-cai";
-const backend_canister = "qo6ef-eaaaa-aaaai-abyyq-cai";
+const backend_canister = FishTank.canisterId; // "qo6ef-eaaaa-aaaai-abyyq-cai";
 const canisterAccount = "4f02cf4e2896917db36daaf2ce12d1f8b47a3a644390f7851f83afcc99e954b3"
 
 const verifyConnection = async () => {
@@ -67,9 +67,9 @@ async function loadMyTank() {
     interfaceFactory: idlFactory,
   });
 
-  removeAllFishesFromTank();
   updateTankColor(currentProfile.tank_color);
   var fishes = await actor.allOwnedTokens();
+  removeAllFishesFromTank();
   for (var i = 0; i < fishes.length; i++) {
     loadFish(fishes[i][0], fishes[i][1].properties);
   }
@@ -93,8 +93,8 @@ async function randomTankClick(e) {
 }
 
 async function loadRandomTank() {
-  removeAllFishesFromTank();
   var results = await FishTank.randomOwnerAll();
+  removeAllFishesFromTank();
   updateTankColor(results[0].tank_color);
   var fishes = results[1];
   for (var i = 0; i < fishes.length; i++) {
@@ -129,6 +129,7 @@ async function login() {
     var result = await actor.getProfile();
     if(result.err === "NOPROFILE") {
       result = await actor.createProfile();
+      showTutorial();
     }
     currentProfile = result.ok;
 
@@ -136,6 +137,10 @@ async function login() {
   } else {
     console.log("Plug wallet connection was refused");
   }
+}
+
+function showTutorial() {
+  //document.get
 }
 
 // Disconnect doesn't seem to work keeps locking up, and I can't find documentation on it
@@ -207,6 +212,14 @@ async function mint() {
       var fishId = mintResult.ok[0];
       var fish = mintResult.ok[1];
       loadFish(fishId, fish.properties);
+
+      var selectedfish = document.getElementsByClassName("selectedfish");
+      if(selectedfish !== undefined){
+        selectedfish[0].classList.remove("selectedfish");
+      }
+      document.getElementById("fish_" + fishId).classList.add("selectedfish");
+
+      
       document.getElementById("nftmetadata").innerText = `Minted at: ${fish.minted_at}
         Minted by: ${fish.minted_by}
         Color 1: ${fish.properties.color_1}
