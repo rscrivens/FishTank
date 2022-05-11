@@ -8,6 +8,7 @@ module {
         properties          : TokenProps;
         minted_at           : Nat64;
         minted_by           : Principal;
+        transferrable       : Bool;
         transferred_at      : ?Nat64;
         transferred_by      : ?Principal;
     };

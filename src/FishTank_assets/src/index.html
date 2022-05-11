@@ -22,13 +22,33 @@
     <section id="tankcontainer">
       <object id="tankobj" data="tank.svg"></object>
     </section>
-    <section>
+    <section id="actions">
+      <button id="tradegoldfish" class="action hidden">Trade in!</button>
+      <button id="burn" class="action hidden">Flush!</button>
       <button id="mint" class="action hidden">Mint!</button>
       <button id="nextrand" class="action">Next Tank</button>
     </section>
-    <section id="minted">
-      <p id="nftid"></p>
-      <p id="nftmetadata"></p>
+    <section id="accountinfo">
+      Balance:<text id="balance"></text>
+      <br>
+      Count:<text id="count"></text>
+    </section>
+    <section id="fishinfo">
+      <p>Id: <text id="fishid"></text></p>
+      <p>Name: <text id="fishname"></text></p>
+      <p>Created: <text id="fishdate"></text></p>
+      <p>Color #1: <text id="fishprop1"></text></p>
+      <p>Color #2: <text id="fishprop2"></text></p>
+      <p>Color #3: <text id="fishprop3"></text></p>
+      <p>Tradable: <text id="fishtradable"></text></p>
+    </section>
+    <section id="adminbuttons">
+      <p>Admin buttons will be removed or gated for production</p>
+      <button id="getlogs">Get Logs</button>
+      <button id="resetall">Reset all states</button>
+    </section>
+    <section>
+      <p id="logs"></p>
     </section>
   </main>
   <object id="basefishobj" data="base_fish.svg"> </object>

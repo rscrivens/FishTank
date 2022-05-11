@@ -15,6 +15,7 @@ import Random "mo:base/Random";
 import T "dip721_types";
 import Time "mo:base/Time";
 import Result "mo:base/Result";
+import F "ledger_types";
 
 actor class DRC721(_name : Text, _symbol : Text) {
     private stable var tokenPk : Nat = 0;
@@ -63,7 +64,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
         return #ok(await _createProfile(msg.caller));
     };
 
-    public shared(msg) func tradeGoldfish() : async Result.Result<Text, Text> {
+    public shared(msg) func tradeGoldfish() : async Result.Result<{id:Nat; metadata:T.TokenMetadata},Text> {
         if(Principal.toText(msg.caller) == "2vxsx-fae") {
             return #err("NOANON");
         };
@@ -79,14 +80,14 @@ actor class DRC721(_name : Text, _symbol : Text) {
         return _tokenMetaData(tokenId);
     };
 
-    public shared query (msg) func allOwnedTokens() : async {fish:[(T.TokenId, T.TokenMetadata)]; hasGoldfish:Bool} {
+    public shared query (msg) func allOwnedTokens() : async {fish:[{id:T.TokenId; metadata:T.TokenMetadata}]; hasGoldfish:Bool} {
         if(Principal.toText(msg.caller) == "2vxsx-fae") {
             return {fish=[]; hasGoldfish=false};
         };
         return _allOwnedTokens(msg.caller);
     };
 
-    public shared func randomOwnerAll() : async {profile:T.Profile;fish:[(T.TokenId, T.TokenMetadata)]; hasGoldfish:Bool} {
+    public shared func randomOwnerAll() : async {profile:T.Profile;fish:[{id:T.TokenId; metadata:T.TokenMetadata}]; hasGoldfish:Bool} {
         return await _randomOwnerAll();
     };
 
@@ -160,14 +161,21 @@ actor class DRC721(_name : Text, _symbol : Text) {
         _transfer(from, to, tokenId);
     };
 
-    public shared(msg) func mint(block_height: Nat64) : async Result.Result<(Nat, T.TokenMetadata),Text>{
+    public shared(msg) func mint(block_height: Nat64) : async Result.Result<{id:Nat; metadata:T.TokenMetadata},Text>{
         if(Principal.toText(msg.caller) == "2vxsx-fae") {
             return #err("You need to log in to mint.");
         };
 
         _log("Recieved block_height: " # Nat64.toText(block_height));
         _log("Trying to mint: " # Principal.toText(msg.caller));
-        return await _mint(block_height, msg.caller);
+
+        // Need to verify the block_height before minting
+
+        return await _mint(msg.caller, true);
+    };
+
+    public shared(msg) func donate(id:Nat) : async Result.Result<Text, Text> {
+        return #err("Todo: needs to be implemented");
     };
 
     public shared query func getLogs(): async Text{
@@ -208,6 +216,9 @@ actor class DRC721(_name : Text, _symbol : Text) {
         };
 
         profiles.put(p, profile);
+
+        goldfishAirDrops.put(p, true);
+        _log("Added goldfish record with true");
         return (profile);
     };
 
@@ -233,7 +244,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
         };
     };
 
-    private func _tradeGoldfish(p : Principal) : async Result.Result<Text, Text> {
+    private func _tradeGoldfish(p : Principal) : async Result.Result<{id:Nat; metadata:T.TokenMetadata},Text> {
         var airDrop: ?Bool = goldfishAirDrops.get(p);
         switch(airDrop){
             case(null){
@@ -246,9 +257,24 @@ actor class DRC721(_name : Text, _symbol : Text) {
 
                 // claim the fish
                 goldfishAirDrops.put(p,false);
-                // transfer the coins
-
-                return #ok("You've recieved coins");
+                /*// transfer the coins
+                let sendArgs : F.SendArgs = {
+                    to = aId;
+                    fee = { e8s = 10000 };
+                    memo = 0;
+                    from_subaccount = null;
+                    created_at_time = null;
+                    amount = { e8s = 20000001 };
+                };
+                let faucetArgs : F.FaucetArgs = {
+                    to = aId;
+                    created_at_time = null;
+                };
+                let actor_faucet : F.FaucetInterface = actor("yeeiw-3qaaa-aaaah-qcvmq-cai");
+                _log(Principal.toText(Principal.fromActor(actor_faucet)));
+                //let response = await actor_faucet.send_dfx(sendArgs);
+                let response = await actor_faucet.faucet(faucetArgs);*/
+                return await _mint(p, false);
             };
         };
     };
@@ -257,16 +283,15 @@ actor class DRC721(_name : Text, _symbol : Text) {
         return tokenFishes.get(tokenId);
     };
 
-    private func _allOwnedTokens(p : Principal) : {fish:[(T.TokenId, T.TokenMetadata)]; hasGoldfish: Bool} {
-        var ret_arr: [var (T.TokenId, T.TokenMetadata)] = [var];
+    private func _allOwnedTokens(p : Principal) : {fish:[{id:T.TokenId; metadata:T.TokenMetadata}]; hasGoldfish: Bool} {
+        var ret_arr: [var {id:T.TokenId; metadata:T.TokenMetadata}] = [var];
         switch(balances.get(p)){
             case(null){
-                return {fish=[]; hasGoldfish=false};
             };
             case(?n){
-                ret_arr := Array.init<(T.TokenId, T.TokenMetadata)>(n, (
-                    0,
-                    {
+                ret_arr := Array.init<{id:T.TokenId; metadata:T.TokenMetadata}>(n, {
+                    id=0;
+                    metadata={
                         minted_at = 0;
                         minted_by = p;
                         properties: T.TokenProps = {
@@ -274,9 +299,10 @@ actor class DRC721(_name : Text, _symbol : Text) {
                             color_2 = "";
                             color_3 = "";
                         };
+                        transferrable = false;
                         transferred_by = null;
                         transferred_at = null;
-                    })
+                    }}
                 );
             };
         };
@@ -287,7 +313,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
                 switch(tokenFishes.get(k)){
                     case(null){};
                     case(?md){
-                        ret_arr[count] := (k,md);
+                        ret_arr[count] := {id=k;metadata=md};
                         count+=1;
                     };
                 };
@@ -297,15 +323,22 @@ actor class DRC721(_name : Text, _symbol : Text) {
         var has_gold_fish : Bool = false;
         
         switch(goldfishAirDrops.get(p)){
-            case(null){};
+            case(null){
+                _log("no goldfish record");
+            };
             case(?hasgf){
+                _log("has goldfish record");
                 has_gold_fish:= hasgf;
             };
         };
         return {fish=(Array.freeze(ret_arr)); hasGoldfish=has_gold_fish};
     };
 
-    private func _randomOwnerAll() : async {profile:T.Profile; fish: [(T.TokenId, T.TokenMetadata)];hasGoldfish: Bool} {
+    private func _randomOwnerAll() : async {profile:T.Profile; fish: [{id:T.TokenId; metadata:T.TokenMetadata}];hasGoldfish: Bool} {
+        if(balances.size() < 1 ){
+            return {profile={tank_color="blue"};fish=[];hasGoldfish=false;};
+        };
+
         var principalIndex : Nat = await _largerand(balances.size());
         _log("Random Principal Index: " # Nat.toText(principalIndex) # "/" # Nat.toText(balances.size()));
         let p : Principal = Iter.toArray(balances.keys())[principalIndex];
@@ -423,26 +456,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
 
     
 
-    private func _mint(block_height: Nat64, to : Principal) : async Result.Result<(Nat, T.TokenMetadata), Text> {
-        /*let AMOUNT_X_10: Nat64 = 10;
-        let PROPER_FEEE: Nat64 = 1;
-        let ledger_canister : actor {
-            send_dfx : (sendparams) -> async Nat64;
-        } = to(ledgerCanisterId);
-
-        let block : Nat64 = await ledger_canister.send_dfx({
-            memo=0; 
-            amount={
-                e8s=AMOUNT_X_10;
-            };
-            fee={
-                e8s=PROPER_FEEE;
-                };
-            from_subaccount=null;
-            to="ltboi-5ke46-b3jbd-phuth-6k6xe-iitgq-hsxqn-ik4ty-z5gdj-sgtf7-5qe";
-            created_at_time=null;
-            });
-        _log("Transaction block:" # Nat64.toText(block));*/
+    private func _mint(to : Principal, transferrable : Bool) : async Result.Result<{id:Nat; metadata:T.TokenMetadata}, Text> {
         tokenPk += 1;
         assert not _exists(tokenPk);
         let fish: T.TokenMetadata = {
@@ -453,6 +467,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
                 color_2 = await _get_random_color2();
                 color_3 = await _get_random_color3();
             };
+            transferrable = transferrable;
             transferred_by = null;
             transferred_at = null;
         };
@@ -460,7 +475,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
         _incrementBalance(to);
         owners.put(tokenPk, to);
         tokenFishes.put(tokenPk, fish);
-        return #ok(tokenPk, fish);
+        return #ok({id=tokenPk; metadata=fish});
     };
 
     private func _burn(tokenId : Nat) {
@@ -485,7 +500,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
     };
 
     private func _rand(max: Nat, range_p: Nat8, maxRand: Float) : async Nat{
-        let range_p : Nat8 = 7;
+        // let range_p : Nat8 = 7;
 
         var next: ?Nat = finite.range(range_p);
         if(next == null){
@@ -497,7 +512,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
 
         Debug.print("rand: " # Nat.toText(Option.get(next, 0)));
 
-        let maxRand : Float = 127;
+        // let maxRand : Float = 127;
         var randPercent : Float = Float.fromInt(Option.get(next, 0)) / maxRand;
         var randNormalized : Float = Float.floor(randPercent * Float.fromInt(max));
         var rand_return : Nat = Int.abs(Float.toInt(randNormalized));
