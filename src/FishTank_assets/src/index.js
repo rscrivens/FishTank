@@ -1,62 +1,11 @@
 import { idlFactory, FishTank, canisterId } from "../../declarations/FishTank";
-import { AuthClient } from "@dfinity/auth-client";
-import { Actor, ActorCallError, HttpAgent } from "@dfinity/agent";
 import { Principal } from "@dfinity/principal";
 import { Identity } from "@dfinity/identity";
-import { getAccountIdentifier } from './utils';
-
-import ledgerInterfaceDid from "./ledgerInterface.did";
+import { getAccountIdentifier, sleep } from './utils';
+import * as iiAuth from './iiAuthentication';
 
 // Login and authentication **************************************************************
-var authClient;
-
-async function create() {
-  authClient = await AuthClient.create();
-  await authClient?.isAuthenticated();
-}
-
-async function getIdentity() {
-  return await authClient?.getIdentity();
-}
-
-async function isAuthenticated() {
-  return await authClient?.isAuthenticated();
-}
-
-/**
- * Get the internet-identity identityProvider URL to use when authenticating the end-user.
- * Use ?identityProvider if present (useful in development), otherwise return undefined
- * so that AuthClient default gets used.
- * For development, open browser to :
- * `http://localhost:8080/?canisterId=<wallet_canister_id>&identityProvider=http://localhost:8000/?canisterId=<internet_identity_id>`
- */
-/*
-function getIdentityProvider() {
-const fromUrl = new URLSearchParams(location.search).get(
-  "identityProvider"
-);
-
-  return fromUrl || undefined;
-}
-*/
-create();
-
-document.getElementById("test").addEventListener("click", mintTest);
-async function mintTest(){
-  await loginTest();
-  const identity = await authClient.getIdentity();
-  const actor = Actor.createActor(idlFactory, {
-    agent: new HttpAgent({
-      identity,
-      
-    }),
-    canisterId,
-  });
-
-  actor.mint(5);
-}
-
-// End of test ***********************************************************************
+iiAuth.init();
 
 var currentProfile;
 var currentTank = [];
@@ -67,20 +16,12 @@ const backend_canister = canisterId; // "qo6ef-eaaaa-aaaai-abyyq-cai";
 const canisterAccount = "4f02cf4e2896917db36daaf2ce12d1f8b47a3a644390f7851f83afcc99e954b3"
 const walletAccount = "d85524dfcc255904b679494220f14d5f64dde746224a0834896cc00db95f4e99";
 
-const verifyConnection = async () => {
-  const connected = await window.ic.plug.isConnected();
-  if (!connected) await window.ic.plug.requestConnect({
-    whitelist: [bootcamp_canister,
-      backend_canister]
-  });
-};
-
 const mytankbtn = document.getElementById("mytank");
 const randombtn = document.getElementById("getrandom");
 const loginbtn = document.getElementById("login");
 //const logoutbtn = document.getElementById("logout");
 const tradegfbtn = document.getElementById("tradegoldfish");
-const burnbtn = document.getElementById("burn");
+const donatebtn = document.getElementById("donate");
 const mintbtn = document.getElementById("mint");
 const nextrandbtn = document.getElementById("nextrand");
 
@@ -89,7 +30,7 @@ randombtn.addEventListener("click", randomTankClick);
 loginbtn.addEventListener("click", loginClick);
 //logoutbtn.addEventListener("click", logoutClick);
 tradegfbtn.addEventListener("click", tradeGfClick);
-burnbtn.addEventListener("click", burnClick);
+donatebtn.addEventListener("click", donateClick);
 mintbtn.addEventListener("click", mintClick);
 nextrandbtn.addEventListener("click", nextRandClick);
 
@@ -127,12 +68,12 @@ async function loginClick(e) {
   //logoutbtn.classList.remove(hiddenClass);
 }
 
+async function login() {
+  await iiAuth.authenticate();
+}
+
 async function loadMyTank() {
-  await verifyConnection();
-  const actor = await window.ic.plug.createActor({
-    canisterId: backend_canister,
-    interfaceFactory: idlFactory,
-  });
+  const actor = await iiAuth.getActor();
 
   var results = await actor.allOwnedTokens();
 
@@ -164,40 +105,10 @@ function updateTankColor(color) {
   tank.getElementById("water3-gradient").children[1].setAttribute("stop-color", color);
 }
 
-async function login() {
-  const hasAllowed = await window.ic?.plug?.requestConnect({
-    whitelist: [bootcamp_canister,
-      backend_canister]
-  });
-
-  if (hasAllowed) {
-    console.log("Plug wallet is connected");
-    const actor = await window.ic.plug.createActor({
-      canisterId: backend_canister,
-      interfaceFactory: idlFactory,
-    });
-
-    var result = await actor.getProfile();
-    if (result.err === "NOPROFILE") {
-      result = await actor.createProfile();
-      showTutorial();
-    }
-    currentProfile = result.ok;
-
-    console.log(currentProfile);
-
-    updateMyBalance();
-  } else {
-    console.log("Plug wallet connection was refused");
-  }
-}
-
 function showTutorial() {
   //document.get
 }
 
-// Disconnect doesn't seem to work keeps locking up, and I can't find documentation on it
-/*
 async function logoutClick(e) {
   logoutbtn.disabled = true;
 
@@ -207,24 +118,13 @@ async function logoutClick(e) {
 }
 
 async function logout() {
-  // Doesn't seem to work
-  await window.ic.plug.disconnect();
-}*/
-
-async function burnClick(e) {
-  console.log("not yet implemented");
+  await iiAuth.logout();
 }
 
 async function tradeGfClick(e) {
   tradegfbtn.disabled = true;
-  await verifyConnection();
-  const actor = await window.ic.plug.createActor({
-    canisterId: backend_canister,
-    interfaceFactory: idlFactory,
-  });
-
-  const accountId = getAccountIdentifier(window.ic.plug.principal);
-  var claimResult = await actor.tradeGoldfish(accountId);
+  const actor = await iiAuth.getActor();
+  var claimResult = await actor.tradeGoldfish();
   if (claimResult.ok) {
     console.log(claimResult);
     var tankobj = document.getElementById("tankobj").getSVGDocument();
@@ -236,45 +136,28 @@ async function tradeGfClick(e) {
   tradegfbtn.disabled = false;
 }
 
+async function donateClick(e) {
+  console.log("donate clicked");
+}
+
 async function mintClick(e) {
   mintbtn.disabled = true;
 
   await mint();
 
-  // mintbtn.disabled = false;
+  setTimeout(() => { mintbtn.innerText = "Mint!"; mintbtn.disabled = false; }, 1000);
 }
 
+// need to hook up payment system later
 async function mint() {
   mintbtn.innerText = "Processing Payment!";
-  await verifyConnection();
-
-  //send funds
-  const faucetActor = await window.ic.plug.createActor({
-    canisterId: bootcamp_canister,
-    interfaceFactory: ledgerInterfaceDid
-  })
-
-  const sendArgs = {
-    to: walletAccount,//canisterAccount,
-    fee: { e8s: 10000 },
-    memo: 0,
-    from_subaccount: [],
-    created_at_time: [],
-    amount: { e8s: 1000000000 }
-  };
+  await sleep(2000);
 
   try {
-    var block_height = await faucetActor.send_dfx(sendArgs);
     mintbtn.innerText = "Minting Fish!";
-    updateMyBalance();
+    const actor = await iiAuth.getActor();
 
-    // Let minter know you sent funds and want a NFT minted
-    const actor = await window.ic.plug.createActor({
-      canisterId: backend_canister,
-      interfaceFactory: idlFactory,
-    });
-
-    var mintResult = await actor.mint(block_height);
+    var mintResult = await actor.mint(0);
     if (mintResult.ok) {
       mintbtn.innerText = "Congrats on new Fish!";
       var fishId = mintResult.ok.id;
@@ -287,26 +170,6 @@ async function mint() {
     console.log(e);
     mintbtn.innerText = "Failed to Mint!";
   }
-
-  setTimeout(() => { mintbtn.innerText = "Mint!"; mintbtn.disabled = false; }, 1000);
-}
-
-async function updateMyBalance() {
-  await verifyConnection();
-  //send funds
-  const faucetActor = await window.ic.plug.createActor({
-    canisterId: bootcamp_canister,
-    interfaceFactory: ledgerInterfaceDid
-  })
-  const accountID = getAccountIdentifier(window.ic.plug.principal);
-  console.log(accountID);
-  const sendArgs = {
-    account: accountID
-  };
-
-  var balance = await faucetActor.account_balance_dfx(sendArgs);
-  document.getElementById("balance").innerText = Number(balance.e8s) / 1e8;
-  console.log(balance);
 }
 
 async function nextRandClick(e) {
@@ -329,7 +192,7 @@ function selectFish(fishsvg) {
   if (fishsvg.classList.contains("selectedfish")) {
     fishsvg.classList.remove("selectedfish");
     tradegfbtn.classList.add("hidden");
-    burnbtn.classList.add("hidden");
+    donatebtn.classList.add("hidden");
     mintbtn.classList.remove("hidden");
     document.getElementById("fishinfo").classList.add("hidden");
     //triggerDelayedRedraw();
@@ -347,10 +210,10 @@ function selectFish(fishsvg) {
     // Determine which buttons should be shown
     if (fishsvg.id === "goldfish") {
       tradegfbtn.classList.remove("hidden");
-      burnbtn.classList.add("hidden");
+      donatebtn.classList.add("hidden");
     } else {
       tradegfbtn.classList.add("hidden");
-      burnbtn.classList.remove("hidden");
+      donatebtn.classList.remove("hidden");
     }
     mintbtn.classList.add("hidden");
 
@@ -360,15 +223,18 @@ function selectFish(fishsvg) {
       fishid = fishid.replace("fish_", "");
       var fishdata = currentTank.find((value) => {
         console.log(fishid + " === " + value.id);
-        return fishid === value.id;
+        return Number(fishid) === Number(value.id);
       });
       document.getElementById("fishid").innerText = fishdata.id;
-      document.getElementById("fishdate").innerText = new Date(fishdata.metadata.minted_at);
+      document.getElementById("fishdate").innerText = new Date(Number(fishdata.metadata.minted_at / 1000000n));
       document.getElementById("fishtradable").innerText = fishdata.metadata.transferrable;
-      document.getElementById("fishcolor1").innerText = fishdata.metadata.properties.color_1;
-      document.getElementById("fishcolor2").innerText = fishdata.metadata.properties.color_2;
-      document.getElementById("fishcolor3").innerText = fishdata.metadata.properties.color_3;
-      document.getElementById("fishinfo").classList.add("hidden");
+      document.getElementById("fishcolor1text").innerText = fishdata.metadata.properties.color_1;
+      document.getElementById("fishcolor1box").style.backgroundColor = fishdata.metadata.properties.color_1;
+      document.getElementById("fishcolor2text").innerText = fishdata.metadata.properties.color_2;
+      document.getElementById("fishcolor2box").style.backgroundColor = fishdata.metadata.properties.color_2;
+      document.getElementById("fishcolor3text").innerText = fishdata.metadata.properties.color_3;
+      document.getElementById("fishcolor3box").style.backgroundColor = fishdata.metadata.properties.color_3;
+      document.getElementById("fishinfo").classList.remove("hidden");
     }
   }
 }
@@ -476,24 +342,6 @@ function removeAllFishesFromTank() {
       tank.removeChild(children[childIndex]);
     }
   }
-}
-
-async function authenticateViaII() {
-  return new Promise(async (resolve) => {
-    return await authClient?.login({
-      identityProvider: undefined,// getIdentityProvider(),
-      onSuccess: async () => {
-        var authenticated = await isAuthenticated();
-        var iden = await getIdentity();
-        console.log(`isauthenticated: ${authenticated}`);
-        console.log(`identity: ${iden}`);
-        console.log(`principal: ${iden.toString()}`)
-        //document.getElementById("login").classList.add("hidden");
-        //document.getElementById("import_exportsection").classList.remove("hidden");
-        resolve(await authClient?.getIdentity());
-      },
-    });
-  });
 }
 
 setTimeout(nextRandClick, 500);

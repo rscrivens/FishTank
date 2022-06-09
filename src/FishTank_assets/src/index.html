@@ -24,22 +24,31 @@
     </section>
     <section id="actions">
       <button id="tradegoldfish" class="action hidden">Trade in!</button>
-      <button id="burn" class="action hidden">Flush!</button>
+      <button id="donate" class="action hidden">Donate!</button>
       <button id="mint" class="action hidden">Mint!</button>
       <button id="nextrand" class="action">Next Tank</button>
     </section>
-    <section id="accountinfo">
+    <section id="accountinfo" class="hidden">
       Balance:<text id="balance"></text>
       <br>
       Count:<text id="count"></text>
     </section>
-    <section id="fishinfo">
+    <section id="fishinfo" class="hidden">
       <p>Id: <text id="fishid"></text></p>
       <p>Name: <text id="fishname"></text></p>
       <p>Created: <text id="fishdate"></text></p>
-      <p>Color #1: <text id="fishprop1"></text></p>
-      <p>Color #2: <text id="fishprop2"></text></p>
-      <p>Color #3: <text id="fishprop3"></text></p>
+      <p>Color #1: 
+        <label id="fishcolor1box" class="color-box"></label>
+        <text id="fishcolor1text" class="color-box-label"></text>
+      </p>
+      <p>Color #2: 
+        <label id="fishcolor2box" class="color-box"></label>
+        <text id="fishcolor2text" class="color-box-label"></text>
+      </p>
+      <p>Color #3: 
+        <label id="fishcolor3box" class="color-box"></label>
+        <text id="fishcolor3text" class="color-box-label"></text>
+      </p>
       <p>Tradable: <text id="fishtradable"></text></p>
     </section>
     <section id="adminbuttons">

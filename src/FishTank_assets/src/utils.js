@@ -65,7 +65,13 @@ const validatePrincipal = (p) => {
     return false;
   }
 }
-export {  
+
+const sleep = (delay, resolveValue) => new Promise((resolve) => {
+  setTimeout(() => resolve(resolveValue), delay);
+});
+
+export { 
+  sleep, 
   getAccountIdentifier,
   getSubAccountArray, 
   toHexString, 
