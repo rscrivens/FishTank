@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width" />
-  <title>FishTank</title>
+  <title>Fish Tank Testnet</title>
   <base href="/" />
   <link rel="icon" href="gf_favicon.ico" />
   <link type="text/css" rel="stylesheet" href="main.css" />
@@ -13,51 +13,102 @@
 <body>
   <main>
     <section id="navbuttons">
-      <button id="getrandom" class="nav hidden">Random tank</button>
-      <button id="mytank" class="nav hidden">My Tank</button>
-      <button id="login" class="nav">Log in</button>
-      <button id="logout" class="nav hidden">Log out</button>
+      <div class="dropdown">
+        <button id="navdropbtn" class="dropbtn">Menu</button>
+        <div id="navdropdown" class="dropdown-content hidden logout">
+          <a href="#random" id="random">Random Tank</a>
+          <a href="#display" id="display">Display Tank</a>
+          <a href="#storage" id="storage">Storage Tank</a>
+          <a href="#login" id="login">Login</a>
+          <a href="#logout" id="logout">Logout</a>
+          <a href="#about" id="about">About</a>
+          <a href="#admin" id="admin" class="hidden">Admin</a>
+        </div>
+      </div>
     </section>
     <header>FishTank</header>
     <section id="tankcontainer">
       <object id="tankobj" data="tank.svg"></object>
     </section>
-    <section id="actions">
-      <button id="tradegoldfish" class="action hidden">Trade in!</button>
-      <button id="donate" class="action hidden">Donate!</button>
-      <button id="mint" class="action hidden">Mint!</button>
-      <button id="nextrand" class="action">Next Tank</button>
+
+    <section id="randomsection" class="actionssection hidden">
+      <button id="nextrandom" class="action">Next</button>
+      <button id="likerandom">Like</button>
     </section>
-    <section id="accountinfo" class="hidden">
-      Balance:<text id="balance"></text>
-      <br>
-      Count:<text id="count"></text>
+
+    <section id="displaysection" class="actionssection hidden">
+      <button id="tradegoldfish" class="action">Trade in!</button>
+      <button id="mint" class="action">Mint!</button>
     </section>
-    <section id="fishinfo" class="hidden">
+
+    <section id="storagesection" class="actionssection hidden">
+      <button id="sort" class="action">Sort</button>
+    </section>
+
+    <section id="aboutsection" class="actionssection hidden">
+      Version 0.1.0 (Alpha)
+      Created by
+      Contact:
+    </section>
+
+    <section id="adminsection" class="actionssection hidden">
+      <button id="exportbackupbtn">export backup</button>
+      <input id="exportbackuptext" type="textarea">
+      <button id="importbackupbtn">import backup</button>
+      <input id="importbackuptext" type="textarea">
+      <button id="getlogs">Get Logs</button>
+      <button id="resetall">Reset all states</button>
+      <p id="logs"></p>
+    </section>
+
+    <section id="accountinfosection" class="infosection hidden">
+      <div>
+        Fish on Display:<text id="displayCount"></text>
+        <br>
+        Fish in Storage:<text id="storageCount"></text>
+        <br>
+        Tank Accessories:<text id="tankAccCount"></text>
+        <br>
+        Fish Accessories:<text id="fishAccCount"></text>
+      </div>
+      <div>
+        Login Streak:<text id="loginStreak"></text>
+        <br>
+        Created:<text id="createdDate"></text>
+        <br>
+        Principal:<text id="principalId"></text>
+      </div>
+    </section>
+
+    <section id="fishinfosection" class="infosection hidden">
       <p>Id: <text id="fishid"></text></p>
       <p>Name: <text id="fishname"></text></p>
       <p>Created: <text id="fishdate"></text></p>
-      <p>Color #1: 
+      <p>Color #1:
         <label id="fishcolor1box" class="color-box"></label>
         <text id="fishcolor1text" class="color-box-label"></text>
       </p>
-      <p>Color #2: 
+      <p>Color #2:
         <label id="fishcolor2box" class="color-box"></label>
         <text id="fishcolor2text" class="color-box-label"></text>
       </p>
-      <p>Color #3: 
+      <p>Color #3:
         <label id="fishcolor3box" class="color-box"></label>
         <text id="fishcolor3text" class="color-box-label"></text>
       </p>
       <p>Tradable: <text id="fishtradable"></text></p>
+      <button id="donate">Donate!</button>
+      <button id="sendToDisplay">Send to Display</button>
+      <button id="sendToStorage">Send to Storage</button>
     </section>
-    <section id="adminbuttons">
-      <p>Admin buttons will be removed or gated for production</p>
-      <button id="getlogs">Get Logs</button>
-      <button id="resetall">Reset all states</button>
-    </section>
-    <section>
-      <p id="logs"></p>
+
+    <section id="testnetbanner">
+      <button id="testnetbannerclose" class="close">X</button>
+      <div>
+        <text>This is a testnet version of Fish Tank. This will be used for testing new features before
+          deploying to the main site. Testnet site might periodically break and at anytime your testnet
+          account can be reset or changed. </text>
+      </div>
     </section>
   </main>
   <object id="basefishobj" data="base_fish.svg"> </object>

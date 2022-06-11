@@ -1,4 +1,6 @@
 import Array "mo:base/Array";
+import Bool "mo:base/Bool";
+import Buffer "mo:base/Buffer";
 import Blob "mo:base/Blob";
 import Debug "mo:base/Debug";
 import Error "mo:base/Error";
@@ -12,83 +14,58 @@ import Nat64 "mo:base/Nat64";
 import Option "mo:base/Option";
 import Principal "mo:base/Principal";
 import Random "mo:base/Random";
-import T "dip721_types";
+import T "types";
 import Time "mo:base/Time";
 import Result "mo:base/Result";
 import F "ledger_types";
 
-actor class DRC721(_name : Text, _symbol : Text) {
-    private stable var tokenPk : Nat = 0;
-    private stable var workaround : [T.TokenProps] = [];
-    private stable var tokenFishEntries : [(T.TokenId, T.TokenMetadata)] = [];
-    private stable var ownersEntries : [(T.TokenId, Principal)] = [];
-    private stable var balancesEntries : [(Principal, Nat)] = [];
-    private stable var profilesEntries : [(Principal, T.Profile)] = [];
-    private stable var tokenApprovalsEntries : [(T.TokenId, Principal)] = [];
-    private stable var operatorApprovalsEntries : [(Principal, [Principal])] = [];
-    private stable var goldfishAirDropEntries : [(Principal, Bool)] = [];
+actor class DRC721() {
+    private stable let _name : Text = "Fish Tank";
+    private stable let _symbol : Text = "FT";
+    private stable var donateKey : ?Principal = null;
+    private stable var workaround : [(T.FishProps, T.TransferEvent, T.BodyType, T.UserId)] = [];
 
-    private let tokenFishes : HashMap.HashMap<T.TokenId, T.TokenMetadata> = HashMap.fromIter<T.TokenId, T.TokenMetadata>(tokenFishEntries.vals(), 10, Nat.equal, Hash.hash);
-    private let owners : HashMap.HashMap<T.TokenId, Principal> = HashMap.fromIter<T.TokenId, Principal>(ownersEntries.vals(), 10, Nat.equal, Hash.hash);
-    private let balances : HashMap.HashMap<Principal, Nat> = HashMap.fromIter<Principal, Nat>(balancesEntries.vals(), 10, Principal.equal, Principal.hash);
-    private let profiles : HashMap.HashMap<Principal, T.Profile> = HashMap.fromIter<Principal, T.Profile>(profilesEntries.vals(), 10, Principal.equal, Principal.hash);
-    private let tokenApprovals : HashMap.HashMap<T.TokenId, Principal> = HashMap.fromIter<T.TokenId, Principal>(tokenApprovalsEntries.vals(), 10, Nat.equal, Hash.hash);
-    private let operatorApprovals : HashMap.HashMap<Principal, [Principal]> = HashMap.fromIter<Principal, [Principal]>(operatorApprovalsEntries.vals(), 10, Principal.equal, Principal.hash);
-    private let goldfishAirDrops : HashMap.HashMap<Principal, Bool> = HashMap.fromIter<Principal, Bool>(goldfishAirDropEntries.vals(), 10, Principal.equal, Principal.hash);
+    private stable var fishEntries : [T.FishMetadata] = [];
+    private stable var userEntries : [(T.UserKey, T.UserInfo)] = [];
+    private stable var displayTankEntries : [T.DisplayTank] = [];
+    private stable var storageTankEntries : [T.StorageTank] = [];
+    private stable var goldfishAirDropEntries : [(T.UserId, Bool)] = [];
+    private stable var adoptableFishEntries: [(T.FishId, Nat)] = [];
+
+    private let fish_buff = Buffer.Buffer<T.FishMetadata>(0);
+    private let display_tank_buff = Buffer.Buffer<T.DisplayTank>(0);
+    private let storage_tank_buff = Buffer.Buffer<T.StorageTank>(0);
+    private let users_hash : HashMap.HashMap<T.UserKey, T.UserInfo> = HashMap.fromIter<T.UserKey, T.UserInfo>(userEntries.vals(), 10, Principal.equal, Principal.hash);
+    private let goldfishAirDrops : HashMap.HashMap<T.UserId, Bool> = HashMap.fromIter<T.UserId, Bool>(goldfishAirDropEntries.vals(), 10, Nat.equal, Hash.hash);
+    private let adoptable_fish_hash : HashMap.HashMap<T.FishId, Nat> = HashMap.fromIter<T.FishId, Nat>(adoptableFishEntries.vals(), 10, Nat.equal, Hash.hash);
 
     private var finite : Random.Finite = Random.Finite(Blob.fromArray([]));
 
-    private var logs : Text = "";
+    /* Admin vars */
+    private stable var adminsEntries : [Text] = ["4tplt-gs3ay-72gw5-7kr63-brwrd-nonyu-xxkhs-l3ljg-4xj24-ahvmk-pqe"];
+    private stable var analyticsEntries : [{name:Text; params: ?[Text]; date:Nat}] = [];
+    private let analytics_buff = Buffer.Buffer<{name:Text; params: ?[Text]; date:Nat}>(10);
+    private stable var logs : Text = "";
 
-    public shared func balanceOf(p : Principal) : async ?Nat {
-        return balances.get(p);
+    /*************************** Query Functions *********************************/
+    public shared query func getBalance(u_key : T.UserKey) : async Result.Result<Nat,T.ErrorCode> {
+        return _getBalance(u_key);
     };
 
-    public shared func ownerOf(tokenId : T.TokenId) : async ?Principal {
-        return _ownerOf(tokenId);
+    public shared query func getDisplayTank(u_id : T.UserId) : async Result.Result<{tank:T.DisplayTank;fish:[T.FishMetadata]},T.ErrorCode> {
+        return _getDisplayTank(u_id);
     };
 
-    public shared query (msg) func getProfile() : async Result.Result<T.Profile,Text> {
-        if(Principal.toText(msg.caller) == "2vxsx-fae") {
-            return #err("NOANON");
-        };
-
-        return _getProfile(msg.caller);
+    public shared query func getOwner(fishId : T.FishId) : async Result.Result<T.UserKey,T.ErrorCode> {
+        return _getOwner(fishId);
     };
 
-    public shared (msg) func createProfile() : async Result.Result<T.Profile, Text> {
-        if(Principal.toText(msg.caller) == "2vxsx-fae") {
-            return #err("NOANON");
-        };
-
-        return #ok(await _createProfile(msg.caller));
+    public shared query func getStorageTank(u_id : T.UserId) : async Result.Result<{tank:T.StorageTank;fish:[T.FishMetadata]},T.ErrorCode> {
+        return _getStorageTank(u_id);
     };
 
-    public shared(msg) func tradeGoldfish() : async Result.Result<{id:Nat; metadata:T.TokenMetadata},Text> {
-        if(Principal.toText(msg.caller) == "2vxsx-fae") {
-            return #err("NOANON");
-        };
-
-        return await _tradeGoldfish(msg.caller);
-    };
-
-    public shared func airdropGoldfish(rate:Float) : async () {
-        return await _airdropGoldfish(rate);
-    };
-
-    public shared query func tokenMetaData(tokenId : T.TokenId) : async ?T.TokenMetadata {
-        return _tokenMetaData(tokenId);
-    };
-
-    public shared query (msg) func allOwnedTokens() : async {fish:[{id:T.TokenId; metadata:T.TokenMetadata}]; hasGoldfish:Bool} {
-        if(Principal.toText(msg.caller) == "2vxsx-fae") {
-            return {fish=[]; hasGoldfish=false};
-        };
-        return _allOwnedTokens(msg.caller);
-    };
-
-    public shared func randomOwnerAll() : async {profile:T.Profile;fish:[{id:T.TokenId; metadata:T.TokenMetadata}]; hasGoldfish:Bool} {
-        return await _randomOwnerAll();
+    public shared query func getUserInfo(u_key : T.UserKey) : async Result.Result<T.UserInfo,T.ErrorCode> {
+        return _getUserInfo(u_key);
     };
 
     public shared query func name() : async Text {
@@ -98,12 +75,114 @@ actor class DRC721(_name : Text, _symbol : Text) {
     public shared query func symbol() : async Text {
         return _symbol;
     };
+  
+    public shared query (msg) func login() : async Result.Result<T.LoggedInUserDetails,T.ErrorCode>{
+        if(Principal.isAnonymous(msg.caller)) {
+            return #err(#LOGINREQUIRED);
+        };
 
+        return _login(msg.caller);
+    };
+
+    /*************************** Update Functions *********************************/
+    public shared(msg) func addToDisplayTank(fishId:T.FishId) : async Result.Result<Text,T.ErrorCode>{
+        if(Principal.isAnonymous(msg.caller)) {
+            return #err(#LOGINREQUIRED);
+        };
+        
+        return _addToDisplayTank(msg.caller, fishId);
+    };
+
+    public shared(msg) func addToStorageTank(fishId:T.FishId) : async Result.Result<Text,T.ErrorCode>{
+        if(Principal.isAnonymous(msg.caller)) {
+            return #err(#LOGINREQUIRED);
+        };
+
+        return _addToStorageTank(msg.caller, fishId);
+    };
+
+/*
+    public shared(msg) func adopt(fishId:T.FishId) : async Result.Result<{fishId:T.FishId; metadata:T.FishMetadata},T.ErrorCode>{
+        if(Principal.isAnonymous(msg.caller)) {
+            return #err(#LOGINREQUIRED);
+        };
+
+        return await _adopt(msg.caller, fishId);
+    };
+
+    public shared(msg) func adoptInit() : async Result.Result<{fishIds:[T.FishId]; metadata:[T.FishMetadata]},T.ErrorCode>{
+        if(Principal.isAnonymous(msg.caller)) {
+            return #err(#LOGINREQUIRED);
+        };
+
+        return await _adoptInit(msg.caller);
+    };
+*/
+/*
+    public shared(msg) func donate(fishId:T.FishId) : async Result.Result<{fish_acc: Text},T.ErrorCode>{
+        if(Principal.isAnonymous(msg.caller)) {
+            return #err(#LOGINREQUIRED);
+        };
+
+        return await _donate(msg.caller, fishId);
+    };
+*/
+
+    public shared (msg) func createNewUser() : async Result.Result<T.LoggedInUserDetails,T.ErrorCode>{
+        if(Principal.isAnonymous(msg.caller)) {
+            return #err(#LOGINREQUIRED);
+        };
+
+        var new_user = _createNewUser(msg.caller);
+        return _login(msg.caller);
+    };
+
+    public shared func getRandomTank() : async Result.Result<{tank:T.DisplayTank;fish:[T.FishMetadata];has_goldfish:Bool},T.ErrorCode> {
+        return await _getRandomTank();
+    };
+
+    public shared(msg) func mint() : async Result.Result<{fishId:T.FishId; metadata:T.FishMetadata},T.ErrorCode>{
+        if(Principal.isAnonymous(msg.caller)) {
+            return #err(#LOGINREQUIRED);
+        };
+
+        _log("Trying to mint: " # Principal.toText(msg.caller));
+
+        // Need to implement payment before minting
+
+        return await _mint(msg.caller, true);
+    };
+
+    public shared(msg) func setFishName(fishId:T.FishId, name:Text) : async Result.Result<Text,T.ErrorCode>{
+        if(Principal.isAnonymous(msg.caller)) {
+            return #err(#LOGINREQUIRED);
+        };
+
+        return _setFishName(msg.caller, fishId, name);
+    };
+
+    public shared(msg) func toggleFavorite(fishId:T.FishId) : async Result.Result<Text,T.ErrorCode>{
+        if(Principal.isAnonymous(msg.caller)) {
+            return #err(#LOGINREQUIRED);
+        };
+
+        return _toggleFavorite(msg.caller, fishId);
+    };
+
+    public shared(msg) func tradeGoldfish() : async Result.Result<{fishId:T.FishId; metadata:T.FishMetadata},T.ErrorCode> {
+        if(Principal.isAnonymous(msg.caller)) {
+            return #err(#LOGINREQUIRED);
+        };
+
+        return await _tradeGoldfish(msg.caller);
+    };
+
+/*
     public shared func isApprovedForAll(owner : Principal, opperator : Principal) : async Bool {
         return _isApprovedForAll(owner, opperator);
     };
 
-    public shared(msg) func approve(to : Principal, tokenId : T.TokenId) : async () {
+    public shared(msg) func approve(to : Principal, tokenId : T.FishId) : async () {
         switch(_ownerOf(tokenId)) {
             case (?owner) {
                 
@@ -160,130 +239,551 @@ actor class DRC721(_name : Text, _symbol : Text) {
 
         _transfer(from, to, tokenId);
     };
-
-    public shared(msg) func mint(block_height: Nat64) : async Result.Result<{id:Nat; metadata:T.TokenMetadata},Text>{
-        if(Principal.toText(msg.caller) == "2vxsx-fae") {
-            return #err("You need to log in to mint.");
+*/
+    /*********************** ADMIN **********************/
+    public shared(msg) func airdropGoldfish(rate:Float) : async Result.Result<Text, T.ErrorCode> {
+        switch(_verifyAdmin(msg.caller)){
+            case(#err(t)){ return #err(t)};
+            case(#ok(t)){
+                return await _airdropGoldfish(rate);
+            };
         };
-
-        _log("Recieved block_height: " # Nat64.toText(block_height));
-        _log("Trying to mint: " # Principal.toText(msg.caller));
-
-        // Need to verify the block_height before minting
-
-        return await _mint(msg.caller, true);
     };
 
-    public shared(msg) func donate(id:Nat) : async Result.Result<Text, Text> {
-        return #err("Todo: needs to be implemented");
+    public shared(msg) func getLogs(): async Result.Result<Text, T.ErrorCode> {
+        switch(_verifyAdmin(msg.caller)){
+            case(#err(t)){ return #err(t)};
+            case(#ok(t)){
+                return #ok(logs);
+            };
+        };
     };
 
-    public shared query func getLogs(): async Text{
-        return logs;
+    public shared(msg) func exportBackup(): async Result.Result<T.Backup, T.ErrorCode>{
+        switch(_verifyAdmin(msg.caller)){
+            case(#err(t)){ return #err(t)};
+            case(#ok(t)){
+                return _exportBackup();
+            };
+        };
     };
 
-    public shared func resetAllState(): async () {
-        for(k in tokenFishes.keys()) { tokenFishes.delete(k); };
-        for(k in owners.keys()) { owners.delete(k); };
-        for(k in balances.keys()) { balances.delete(k); };
-        for(k in profiles.keys()) { profiles.delete(k); };
-        for(k in tokenApprovals.keys()) { tokenApprovals.delete(k); };
-        for(k in operatorApprovals.keys()) { operatorApprovals.delete(k); };
-        for(k in goldfishAirDrops.keys()) { goldfishAirDrops.delete(k); };
+    public shared(msg) func importBackup(backup:T.Backup): async Result.Result<Text, T.ErrorCode>{
+        switch(_verifyAdmin(msg.caller)){
+            case(#err(t)){ return #err(t)};
+            case(#ok(t)){
+                return _importBackup(backup);
+            };
+        };
     };
 
-    // Internal
+    public shared(msg) func resetAllState(): async Result.Result<(), T.ErrorCode> {
+        switch(_verifyAdmin(msg.caller)){
+            case(#err(t)){ return #err(t)};
+            case(#ok(t)){
+                for(k in users_hash.keys()) { users_hash.delete(k); };
+                for(k in goldfishAirDrops.keys()) { goldfishAirDrops.delete(k); };
+                for(k in adoptable_fish_hash.keys()) { adoptable_fish_hash.delete(k); };
+                fish_buff.clear();
+                display_tank_buff.clear();
+                storage_tank_buff.clear();
 
-    private func _ownerOf(tokenId : T.TokenId) : ?Principal {
-        return owners.get(tokenId);
+                return #ok();
+            };
+        };
     };
 
-    private func _getProfile(p : Principal) : Result.Result<T.Profile, Text> {
-        switch(profiles.get(p)){
+    public shared(msg) func addAdmin(principal: Text): async Result.Result<Text, T.ErrorCode> {
+        switch(_verifyAdmin(msg.caller)){
+            case(#err(t)){ return #err(t)};
+            case(#ok(t)){
+                return _addAdmin(principal);
+            };
+        };
+    };
+
+    public shared(msg) func removeAdmin(principal: Text): async Result.Result<Text, T.ErrorCode> {
+        switch(_verifyAdmin(msg.caller)){
+            case(#err(t)){ return #err(t)};
+            case(#ok(t)){
+                return _removeAdmin(principal);
+            };
+        };
+    };
+
+    public shared(msg) func getAdmins(): async Result.Result<[Text],T.ErrorCode>{
+        switch(_verifyAdmin(msg.caller)){
+            case(#err(t)){ return #err(t)};
+            case(#ok(t)){
+                return #ok(adminsEntries);
+            };
+        };
+    };
+
+    public shared(msg) func getAnalytics(): async Result.Result<[{name:Text; params: ?[Text]; date:Nat}], T.ErrorCode>{
+        switch(_verifyAdmin(msg.caller)){
+            case(#err(t)){ return #err(t)};
+            case(#ok(t)){
+                return _getAnalytics();
+            };
+        };
+    };
+
+    public shared(msg) func clearAnalytics(): async Result.Result<(), T.ErrorCode>{
+        switch(_verifyAdmin(msg.caller)){
+            case(#err(t)){ return #err(t)};
+            case(#ok(t)){
+                return _clearAnalytics();
+            };
+        };
+    };
+    
+    /*************************** Private Admin Functions *********************************/
+    private func _verifyAdmin(p: Principal): Result.Result<Text, T.ErrorCode> {
+        let found = Array.find<Text>(adminsEntries, func(a){ return Principal.toText(p) == a; });
+        switch(found){
+            case (null){
+                return #err(#NOTAUTHORIZED);
+            };
+            case (_){
+                return #ok("Authorized");
+            };
+        };
+    };
+
+    private func _addAdmin(p: Text): Result.Result<Text, T.ErrorCode> {
+        let found = Array.find<Text>(adminsEntries, func(a){ return p == a; });
+        switch(found){
+            case (null){
+                let admins_buff = Buffer.Buffer<Text>(1);
+                for (admin in adminsEntries.vals()) { admins_buff.add(admin); };
+                admins_buff.add(p);
+                adminsEntries := admins_buff.toArray();
+                return #ok("Added");
+            };
+            case (_){
+                return #ok("Already exists");
+            };
+        };
+    };
+
+    private func _removeAdmin(p: Text): Result.Result<Text, T.ErrorCode> {
+        let found = Array.find<Text>(adminsEntries, func(a){ return p == a; });
+        switch(found){
+            case (null){
+                return #ok("Not found");
+            };
+            case (_){
+                let admins_buff = Buffer.Buffer<Text>(1);
+                for (admin in adminsEntries.vals()) {
+                    if(admin != p){
+                        admins_buff.add(admin);
+                    };
+                };
+                adminsEntries := admins_buff.toArray();
+                return #ok("Removed");
+            };
+        };
+    };
+
+    private func _getAnalytics(): Result.Result<[{name:Text; params: ?[Text]; date:Nat}], T.ErrorCode> {
+        return #err(#NOTYETIMPLEMENTED);
+    };
+
+    private func _clearAnalytics(): Result.Result<(), T.ErrorCode> {
+        return #err(#NOTYETIMPLEMENTED);
+    };
+
+    /*************************** Private Query Functions *********************************/
+    private func _getBalance(u_key : T.UserKey) : Result.Result<Nat,T.ErrorCode> {
+        switch(users_hash.get(u_key)){
             case(null){
-                return #err("NOPROFILE");
+                return #err(#NOUSERFOUND);
             };
-            case(?pro){
-                return #ok(pro);
+            case(?user_info){
+                return #ok(user_info.fish.size());
             };
         };
-
     };
 
-    private func _createProfile(p: Principal) : async T.Profile {
-        let profile : T.Profile = {
-            tank_color = await _get_random_tankcolor();
+    private func _getFishMetadata(fishIds: [T.FishId]) : [T.FishMetadata]{
+        let fish:[T.FishMetadata] = Array.tabulate<T.FishMetadata>(fishIds.size(), func (i:Nat) {
+            return fish_buff.get(fishIds.get(i));
+        });
+
+        return fish;
+    };
+
+    private func _getDisplayTank(u_id : T.UserId) : Result.Result<{tank:T.DisplayTank;fish:[T.FishMetadata];has_goldfish:Bool},T.ErrorCode> {
+        switch(display_tank_buff.getOpt(u_id)){
+            case(null){
+                return #err(#NOUSERFOUND);
+            };
+            case(?display_tank){
+                let fish_metadata:[T.FishMetadata] = _getFishMetadata(display_tank.fish);
+                var has_gf = false;
+                switch(goldfishAirDrops.get(u_id)){
+                    case(null){};
+                    case(?ad){
+                        has_gf := ad;
+                    };
+                };
+                return #ok({tank=display_tank;fish=fish_metadata;has_goldfish=has_gf});
+            };
+        };
+    };
+
+    private func _getOwner(fishId : T.FishId) : Result.Result<T.UserKey, T.ErrorCode> {
+        switch(fish_buff.getOpt(fishId)){
+            case(null){
+                return #err(#NOFISHFOUND);
+            };
+            case(?fish){
+                return #ok(fish.owner_history[fish.owner_history.size()].to);
+            };
+        };
+    };
+
+    private func _getStorageTank(u_id : T.UserId) : Result.Result<{tank:T.StorageTank;fish:[T.FishMetadata]},T.ErrorCode> {
+        switch(storage_tank_buff.getOpt(u_id)){
+            case(null){
+                return #err(#NOUSERFOUND);
+            };
+            case(?storage_tank){
+
+                let fish_metadata:[T.FishMetadata] = _getFishMetadata(storage_tank.fish);
+                return #ok({tank=storage_tank;fish=fish_metadata});
+            };
+        };
+    };
+
+    private func _getUserInfo(u_key : T.UserKey) : Result.Result<T.UserInfo, T.ErrorCode> {
+        switch(users_hash.get(u_key)){
+            case(null){
+                return #err(#NOUSERFOUND);
+            };
+            case(?user_info){
+                return #ok(user_info);
+            };
+        };
+    };
+
+    /*************************** Private Update Functions *********************************/
+
+    private func _addToDisplayTank(u_key: T.UserKey, fishId: T.FishId) : Result.Result<Text, T.ErrorCode>{
+        if(_isOwner(u_key, fishId)){
+            return #err(#NOTAUTHORIZED);
         };
 
-        profiles.put(p, profile);
+        switch(users_hash.get(u_key)){
+            case (null){
+                return #err(#NOUSERFOUND);
+            };
+            case (?user){
+                // Remove from storage tank
+                let new_storage_fish = Array.filter(storage_tank_buff.get(user.id).fish, func(id:T.FishId):Bool{ return id != fishId});
+                let new_storage_tank : T.StorageTank = {
+                    fish = new_storage_fish;
+                };
+                storage_tank_buff.put(user.id, new_storage_tank);
 
-        goldfishAirDrops.put(p, true);
+                // Add to display tank if not already in there
+                let cur_display_tank = display_tank_buff.get(user.id);
+                let cur_display_fish = cur_display_tank.fish;
+                switch(Array.find(cur_display_fish, func(id: T.FishId):Bool{ id == fishId; })){
+                    case (null){
+                        let new_display_fish : Buffer.Buffer<T.FishId> = Buffer.Buffer(cur_display_fish.size() + 1);
+                        for (x in cur_display_fish.vals()) {
+                            new_display_fish.add(x);
+                        };
+                        new_display_fish.add(fishId);
+
+                        let new_display_tank : T.DisplayTank = {
+                            acc_left = cur_display_tank.acc_left;
+                            acc_right = cur_display_tank.acc_right;
+                            color_bg = cur_display_tank.color_bg;
+                            color_bottom = cur_display_tank.color_bottom;
+                            effect = cur_display_tank.effect;
+                            fish = new_display_fish.toArray();
+                        };
+
+                        display_tank_buff.put(user.id, new_display_tank);
+                        return #ok("Added");
+                    };
+                    case(_){
+                        return #ok("Already added");
+                    };
+                };
+            };
+        };
+    };
+
+    private func _addToStorageTank(u_key: T.UserKey, fishId: T.FishId) : Result.Result<Text, T.ErrorCode>{
+        if(_isOwner(u_key, fishId)){
+            return #err(#NOTAUTHORIZED);
+        };
+
+        switch(users_hash.get(u_key)){
+            case (null){
+                return #err(#NOUSERFOUND);
+            };
+            case (?user){
+                // Remove from display tank
+                let cur_display_tank = display_tank_buff.get(user.id);
+                let new_display_fish = Array.filter(cur_display_tank.fish, func(id:T.FishId):Bool{ return id != fishId});
+                let new_display_tank : T.DisplayTank = {
+                    acc_left = cur_display_tank.acc_left;
+                    acc_right = cur_display_tank.acc_right;
+                    color_bg = cur_display_tank.color_bg;
+                    color_bottom = cur_display_tank.color_bottom;
+                    effect = cur_display_tank.effect;
+                    fish = new_display_fish;
+                };
+                display_tank_buff.put(user.id, new_display_tank);
+
+                // Add to storage tank if not already in there
+                let cur_storage_tank = storage_tank_buff.get(user.id);
+                let cur_storage_fish = cur_storage_tank.fish;
+                switch(Array.find(cur_storage_fish, func(id: T.FishId):Bool{ id == fishId; })){
+                    case (null){
+                        let new_storage_fish : Buffer.Buffer<T.FishId> = Buffer.Buffer(cur_storage_fish.size() + 1);
+                        for (x in cur_storage_fish.vals()) {
+                            new_storage_fish.add(x);
+                        };
+                        new_storage_fish.add(fishId);
+
+                        let new_storage_tank : T.StorageTank = {
+                            fish = new_storage_fish.toArray();
+                        };
+
+                        storage_tank_buff.put(user.id, new_storage_tank);
+                        return #ok("Added");
+                    };
+                    case(_){
+                        return #ok("Already added");
+                    };
+                };
+            };
+        };
+    };
+
+    private func _createNewUser(u_key: T.UserKey) : async T.UserInfo {
+        let new_user : T.UserInfo = {
+            id = users_hash.size();
+            achievements = [];
+            created_date = Int.abs(Time.now());
+            fish = [];
+            fish_accs = [];
+            tank_accs = [];
+            wallets = [];
+            last_login = Int.abs(Time.now());
+            login_streak = 1;
+        };
+
+        let new_display_tank : T.DisplayTank = {
+            fish = [];
+            color_bottom = "";
+            color_bg = "";
+            acc_left = "";
+            acc_right = "";
+            effect = "";
+        };
+        // tank_color = await _get_random_tankcolor();
+
+        let new_storage_tank: T.StorageTank = {
+            fish = [];
+        };
+
+        users_hash.put(u_key, new_user);
+        display_tank_buff.add(new_display_tank);
+        storage_tank_buff.add(new_storage_tank);
+
+        goldfishAirDrops.put(new_user.id, true);
         _log("Added goldfish record with true");
-        return (profile);
+        return (new_user);
     };
 
-    private func _airdropGoldfish(ad_percent: Float) : async (){
+    private func _login(u_key:T.UserKey) : Result.Result<T.LoggedInUserDetails,T.ErrorCode>{
+        switch(users_hash.get(u_key)){
+            case(null){
+                return #err(#NOUSERFOUND);
+            };
+            case(?user){
+                // check if login streak should be reset or increased
+                let now : Nat = Int.abs(Time.now());
+                var new_login_streak = user.login_streak + 1;
+
+                let new_user_info : T.UserInfo = _editUserInfo(user, null, null,  null, ?now, ?new_login_streak, null, null);
+
+                let display_res = switch(_getDisplayTank(user.id)) {
+                    case (#err(error)){ return #err(error); };
+                    case (#ok(res)){ res; };
+                };
+
+                users_hash.put(u_key, new_user_info);
+
+                let is_admin = switch(_verifyAdmin(u_key)){
+                    case(#ok(res)){
+                        true;
+                    };
+                    case(#err(error)){
+                        false;
+                    };
+                };
+
+                return #ok({
+                    principalId = Principal.toText(u_key);
+                    display_tank = display_res.tank;
+                    display_fish = display_res.fish;
+                    has_goldfish = display_res.has_goldfish;
+                    user_info = new_user_info;
+                    is_admin = is_admin;
+                });
+            };
+        };
+    };
+
+    private func _setFishName(u_key: T.UserKey, fish_id:T.FishId, name:Text) : Result.Result<Text,T.ErrorCode> {
+        switch(fish_buff.getOpt(fish_id)){
+            case(null){
+                return #err(#NOFISHFOUND);
+            };
+            case(?fish){
+                let fish = fish_buff.get(fish_id);
+                if(_isOwner(u_key, fish_id)){
+                    return #err(#NOTAUTHORIZED);
+                };
+
+                if(name.size() > 15){
+                    return #err(#INVALIDNAME);
+                };
+
+                var new_fish = _editFish(fish, null, null, ?name, null, null, null);
+                fish_buff.put(fish_id, new_fish);
+
+                return #ok(name);
+            };
+        };
+    };
+
+    private func _toggleFavorite(u_key: T.UserKey, fish_id:T.FishId) : Result.Result<Text,T.ErrorCode> {
+        switch(fish_buff.getOpt(fish_id)){
+            case(null){
+                return #err(#NOFISHFOUND);
+            };
+            case(?fish){
+                if(_isOwner(u_key, fish_id)){
+                    return #err(#NOTAUTHORIZED);
+                };
+
+                var new_fish = _editFish(fish, ?(not fish.favorite), null, null, null, null, null);
+                fish_buff.put(fish_id, new_fish);
+
+                return #ok("Favorited = " # Bool.toText(new_fish.favorite));
+            };
+        };
+    };
+
+    private func _editFish(existing: T.FishMetadata, favorite:?Bool, level:?Nat, name:?Text, owner_history:?[T.TransferEvent], 
+    properties:?T.FishProps, transferrable:?Bool) : T.FishMetadata {
+        /*
+        var new_favorite : Bool = switch(favorite){ case(null){existing.favorite}; case(?n){ n };};
+        var new_level : Nat = switch(level){ case(null){ existing.level }; case(?n){ n };};
+        var new_name : Text =  switch(name){ case(null){ existing.name }; case(?n){ n };};
+        var new_owner_history : [T.TransferEvent] = switch(owner_history){ case(null){ existing.owner_history }; case(?n){ n };};
+        var new_properties : T.FishProps = switch(properties){ case(null){ existing.properties }; case(?n){ n };};
+        var new_transferrable : Bool = switch(transferrable){ case(null){existing.transferrable}; case(?n){ n };};
+*/
+        let new_fish : T.FishMetadata =  {
+            favorite = switch(favorite){ case(null){existing.favorite}; case(?n){ n };};
+            level = switch(level){ case(null){ existing.level }; case(?n){ n };};
+            name = switch(name){ case(null){ existing.name }; case(?n){ n };};
+            owner_history = switch(owner_history){ case(null){ existing.owner_history }; case(?n){ n };};
+            properties = switch(properties){ case(null){ existing.properties }; case(?n){ n };};
+            transferrable = switch(transferrable){ case(null){existing.transferrable}; case(?n){ n };};
+        };
+
+        return new_fish;
+    };
+
+    private func _editUserInfo(existing: T.UserInfo, achievements: ?[Text]/*achivements*/, fish: ?[T.FishId], fish_accs: ?[Text],
+    last_login: ?Nat, login_streak: ?Nat, tank_accs : ?[Text], wallets: ?[{id:Principal; wallet: Text}] ) : T.UserInfo{
+        let new_user_info : T.UserInfo = {
+            achievements = switch(achievements){ case(null){existing.achievements}; case(?n){ n };};
+            created_date = existing.created_date;
+            fish = switch(fish){ case(null){existing.fish}; case(?n){ n };};
+            fish_accs = switch(fish_accs){ case(null){existing.fish_accs}; case(?n){ n };};
+            id = existing.id;
+            last_login = switch(last_login){ case(null){existing.last_login}; case(?n){ n };};
+            login_streak = switch(login_streak){ case(null){existing.login_streak}; case(?n){ n };};
+            tank_accs = switch(tank_accs){ case(null){existing.tank_accs}; case(?n){ n };};
+            wallets = switch(wallets){ case(null){existing.wallets}; case(?n){ n };};
+        };
+
+        return new_user_info;
+    };
+    
+    private func _isOwner(u_key: T.UserKey, fish_id: T.FishId) : Bool  {
+        var fish = fish_buff.get(fish_id);
+        return Principal.equal(u_key, fish.owner_history[fish.owner_history.size()].to)
+    };
+
+    private func _getRandomTank() : async Result.Result<{tank:T.DisplayTank;fish:[T.FishMetadata];has_goldfish:Bool},T.ErrorCode> {
+        if(display_tank_buff.size() < 1 ){
+            return #err(#NOUSERFOUND);
+        };
+
+        var display_tank_index : Nat = await _largerand(display_tank_buff.size());
+        _log("Random display tank Index: " # Nat.toText(display_tank_index) # "/" # Nat.toText(display_tank_buff.size()));
+
+        return _getDisplayTank(display_tank_index);
+    };
+
+    private func _airdropGoldfish(drop_percent: Float) : async Result.Result<Text, T.ErrorCode>{
         // need to clear old airdrop hash
         for(k in goldfishAirDrops.keys()) { goldfishAirDrops.delete(k); };
 
-        // get updated count to be dropped
-        var airdropcount : Nat = Int.abs(Float.toInt(Float.ceil(Float.fromInt(profiles.size()) * ad_percent)));
+        let p_array = Iter.toArray(users_hash.keys());
 
-        let p_array = Iter.toArray(balances.keys());
+        // get updated count to be dropped
+        var airdropcount : Nat = Int.abs(Float.toInt(Float.ceil(Float.fromInt(p_array.size()) * drop_percent)));
+
         while ( goldfishAirDrops.size() < airdropcount) {
-            var principalIndex : Nat = await _largerand(p_array.size());
-            let p : Principal = p_array[principalIndex];
-            switch(goldfishAirDrops.get(p)){
+            var index : Nat = await _largerand(p_array.size());
+            let u_id = switch(users_hash.get(p_array[index])){case(null){return #err(#NOUSERFOUND)}; case(?u){u.id;};};
+            switch(goldfishAirDrops.get(u_id)){
                 case(null){
-                    goldfishAirDrops.put(p, true);
+                    goldfishAirDrops.put(u_id, true);
                 };
                 case(?ad){
-                    _log("Duplicate airdrop profile generated:" # Nat.toText(principalIndex));
+                    _log("Duplicate airdrop profile generated:" # Nat.toText(u_id));
                 };
             };
         };
+
+        return #ok("");
     };
 
-    private func _tradeGoldfish(p : Principal) : async Result.Result<{id:Nat; metadata:T.TokenMetadata},Text> {
-        var airDrop: ?Bool = goldfishAirDrops.get(p);
+    private func _tradeGoldfish(p : Principal) : async Result.Result<{fishId:T.FishId; metadata:T.FishMetadata},T.ErrorCode> {
+        let u_id = switch(users_hash.get(p)){case(null){return #err(#NOUSERFOUND)}; case(?u){u.id;};};
+        var airDrop: ?Bool = goldfishAirDrops.get(u_id);
         switch(airDrop){
             case(null){
-                return #err("You don't have a goldfish!");
+                return #err(#NOGOLDFISH);
             };
             case(?aD){
                 if(aD == false){
-                    return #err("You already claimed your goldfish!");
+                    return #err(#GOLDFISHCLAIMED);
                 };
 
                 // claim the fish
-                goldfishAirDrops.put(p,false);
-                /*// transfer the coins
-                let sendArgs : F.SendArgs = {
-                    to = aId;
-                    fee = { e8s = 10000 };
-                    memo = 0;
-                    from_subaccount = null;
-                    created_at_time = null;
-                    amount = { e8s = 20000001 };
-                };
-                let faucetArgs : F.FaucetArgs = {
-                    to = aId;
-                    created_at_time = null;
-                };
-                let actor_faucet : F.FaucetInterface = actor("yeeiw-3qaaa-aaaah-qcvmq-cai");
-                _log(Principal.toText(Principal.fromActor(actor_faucet)));
-                //let response = await actor_faucet.send_dfx(sendArgs);
-                let response = await actor_faucet.faucet(faucetArgs);*/
+                goldfishAirDrops.put(u_id,false);
                 return await _mint(p, false);
             };
         };
     };
 
-    private func _tokenMetaData(tokenId : T.TokenId) : ?T.TokenMetadata {
-        return tokenFishes.get(tokenId);
-    };
-
-    private func _allOwnedTokens(p : Principal) : {fish:[{id:T.TokenId; metadata:T.TokenMetadata}]; hasGoldfish: Bool} {
+    /*private func _allOwnedTokens(p : Principal) : {fish:[{id:T.TokenId; metadata:T.TokenMetadata}]; hasGoldfish: Bool} {
         var ret_arr: [var {id:T.TokenId; metadata:T.TokenMetadata}] = [var];
         switch(balances.get(p)){
             case(null){
@@ -332,31 +832,9 @@ actor class DRC721(_name : Text, _symbol : Text) {
             };
         };
         return {fish=(Array.freeze(ret_arr)); hasGoldfish=has_gold_fish};
-    };
+    };*/
 
-    private func _randomOwnerAll() : async {profile:T.Profile; fish: [{id:T.TokenId; metadata:T.TokenMetadata}];hasGoldfish: Bool} {
-        if(balances.size() < 1 ){
-            return {profile={tank_color="blue"};fish=[];hasGoldfish=false;};
-        };
-
-        var principalIndex : Nat = await _largerand(balances.size());
-        _log("Random Principal Index: " # Nat.toText(principalIndex) # "/" # Nat.toText(balances.size()));
-        let p : Principal = Iter.toArray(balances.keys())[principalIndex];
-        var profile : T.Profile = {
-            tank_color = "";
-            has_gold_fish = false;
-        };
-
-        switch(profiles.get(p)){
-            case(null){
-            };
-            case(?pro){
-                profile:= pro;
-            };
-        };
-        let all_tokens = _allOwnedTokens(p);
-        return {profile=profile; fish=all_tokens.fish; hasGoldfish=all_tokens.hasGoldfish};
-    };
+    /*
 
     private func _isApprovedForAll(owner : Principal, opperator : Principal) : Bool {
         switch (operatorApprovals.get(owner)) {
@@ -420,71 +898,41 @@ actor class DRC721(_name : Text, _symbol : Text) {
         _decrementBalance(from);
         _incrementBalance(to);
         owners.put(tokenId, to);
-    };
+    };    
+    */
 
-    private func _incrementBalance(address : Principal) {
-        switch (balances.get(address)) {
-            case (?v) {
-                balances.put(address, v + 1);
-            };
-            case null {
-                balances.put(address, 1);
-            }
-        }
-    };
-
-    private func _decrementBalance(address : Principal) {
-        switch (balances.get(address)) {
-            case (?v) {
-                balances.put(address, v - 1);
-            };
-            case null {
-                balances.put(address, 0);
-            }
-        }
-    };
-
-    let ledgerCanisterId : Text = "yeeiw-3qaaa-aaaah-qcvmq-cai";
-    type sendparams = {
-            to : Text;
-            fee : {e8s: Nat64};
-            memo : Nat;
-            from_subaccount : ?Nat8;
-            created_at_time : ?{ timestamp_nanos : Nat64 };
-            amount : {e8s: Nat64};
-        };
-
-    
-
-    private func _mint(to : Principal, transferrable : Bool) : async Result.Result<{id:Nat; metadata:T.TokenMetadata}, Text> {
-        tokenPk += 1;
-        assert not _exists(tokenPk);
-        let fish: T.TokenMetadata = {
-            minted_at = Nat64.fromNat(Int.abs(Time.now()));
-            minted_by = to;
-            properties: T.TokenProps = {
+    private func _mint(to : Principal, transferrable : Bool) : async Result.Result<{fishId:T.FishId; metadata:T.FishMetadata}, T.ErrorCode> {
+        let id = fish_buff.size();
+        let fish: T.FishMetadata = {
+            favorite = false;
+            level = 0;
+            name = "";
+            owner_history = Array.make<T.TransferEvent>({
+                from = null;
+                to = to;
+                time = Int.abs(Time.now());
+            });
+            properties: T.FishProps = {
+                acc_hat = "";
+                body_type = #GOLDFISH;
                 color_1 = await _get_random_color1();
                 color_2 = await _get_random_color2();
                 color_3 = await _get_random_color3();
+                eye_color = "";
+                speed = await _get_random_speed();
+                size = await _get_random_size();
             };
             transferrable = transferrable;
-            transferred_by = null;
-            transferred_at = null;
         };
+
+        // need to add metadata to fish
+        // add fish to users fish list
+        // add fish to display tank
+        fish_buff.add(fish);
         
-        _incrementBalance(to);
-        owners.put(tokenPk, to);
-        tokenFishes.put(tokenPk, fish);
-        return #ok({id=tokenPk; metadata=fish});
-    };
-
-    private func _burn(tokenId : Nat) {
-        let owner = Option.unwrap(_ownerOf(tokenId));
-
-        _removeApprove(tokenId);
-        _decrementBalance(owner);
-
-        ignore owners.remove(tokenId);
+        let result = _addToDisplayTank(to, id);        
+        
+        return #ok({fishId=id; metadata=fish});
     };
 
     private func _log(msg: Text) : () {
@@ -523,6 +971,14 @@ actor class DRC721(_name : Text, _symbol : Text) {
         };
 
         return (rand_return);
+    };
+
+    private func _get_random_speed() : async Nat {
+        return (100);
+    };
+
+    private func _get_random_size() : async Nat {
+        return (100);
     };
 
     private func _get_random_color1() : async Text {
@@ -626,7 +1082,7 @@ actor class DRC721(_name : Text, _symbol : Text) {
         "#9E1C5C"
     ];
 
-        private let colors_for_tank : [Text] = [
+    private let colors_for_tank : [Text] = [
          /*pastels*/
         "#ABDEE6",
         "#CBAACB",
@@ -653,23 +1109,70 @@ actor class DRC721(_name : Text, _symbol : Text) {
         "#9E1C5C"
     ];
 
+    private func _exportBackup(): Result.Result<T.Backup, T.ErrorCode>{
+        return #ok({
+            userEntries = Iter.toArray(users_hash.entries());
+            fishEntries = fish_buff.toArray();
+            displayTankEntries = display_tank_buff.toArray();
+            storageTankEntries = storage_tank_buff.toArray();
+            goldfishAirDropEntries = Iter.toArray(goldfishAirDrops.entries());
+            adoptableFishEntries = Iter.toArray(adoptable_fish_hash.entries());
+            donateKey = donateKey;
+            adminsEntries = adminsEntries;
+            logs = logs;
+        });
+    };
+
+    private func _importBackup(backup: T.Backup): Result.Result<Text,T.ErrorCode> {
+        for(key in users_hash.keys()){ users_hash.delete(key); };
+        for(val in backup.userEntries.vals()){ users_hash.put(val.0,val.1); };
+
+        for(key in goldfishAirDrops.keys()){ goldfishAirDrops.delete(key); };
+        for(val in backup.goldfishAirDropEntries.vals()){ goldfishAirDrops.put(val.0,val.1); };
+
+        for(key in adoptable_fish_hash.keys()){ adoptable_fish_hash.delete(key); };
+        for(val in backup.adoptableFishEntries.vals()){ adoptable_fish_hash.put(val.0,val.1); };
+
+        fish_buff.clear();
+        for (fish in backup.fishEntries.vals()) { fish_buff.add(fish); };
+        display_tank_buff.clear();
+        for (tank in backup.displayTankEntries.vals()) { display_tank_buff.add(tank); };
+        storage_tank_buff.clear();
+        for (tank in backup.storageTankEntries.vals()) { storage_tank_buff.add(tank); };
+
+        adminsEntries := backup.adminsEntries;
+        donateKey := backup.donateKey;
+
+        return #ok("imported backup");
+    };
+
     system func preupgrade() {
-        tokenFishEntries := Iter.toArray(tokenFishes.entries());
-        ownersEntries := Iter.toArray(owners.entries());
-        balancesEntries := Iter.toArray(balances.entries());
-        profilesEntries := Iter.toArray(profiles.entries());
-        tokenApprovalsEntries := Iter.toArray(tokenApprovals.entries());
-        operatorApprovalsEntries := Iter.toArray(operatorApprovals.entries());
+        fishEntries := fish_buff.toArray();
+        displayTankEntries := display_tank_buff.toArray();
+        storageTankEntries := storage_tank_buff.toArray();
+        userEntries := Iter.toArray(users_hash.entries());
         goldfishAirDropEntries := Iter.toArray(goldfishAirDrops.entries());
+        adoptableFishEntries := Iter.toArray(adoptable_fish_hash.entries());
     };
 
     system func postupgrade() {
-        tokenFishEntries := [];
-        ownersEntries := [];
-        balancesEntries := [];
-        profilesEntries := [];
-        tokenApprovalsEntries := [];
-        operatorApprovalsEntries := [];
+        for (fish in fishEntries.vals()) {
+            fish_buff.add(fish);
+        };
+        fishEntries := [];
+
+        for (disp in displayTankEntries.vals()) {
+            display_tank_buff.add(disp);
+        };
+        displayTankEntries := [];
+
+        for (stor in storageTankEntries.vals()) {
+            storage_tank_buff.add(stor);
+        };
+        storageTankEntries := [];
+        
+        userEntries := [];
         goldfishAirDropEntries := [];
+        adoptableFishEntries := [];
     };
 };

@@ -1,4 +1,4 @@
-import { idlFactory, FishTank, canisterId } from "../../declarations/FishTank";
+import { idlFactory, FishTank, canisterId, ErrorCode } from "../../declarations/FishTank";
 import { Principal } from "@dfinity/principal";
 import { Identity } from "@dfinity/identity";
 import { getAccountIdentifier, sleep } from './utils';
@@ -7,8 +7,20 @@ import * as iiAuth from './iiAuthentication';
 // Login and authentication **************************************************************
 iiAuth.init();
 
-var currentProfile;
-var currentTank = [];
+var curMenuState = "logout";
+
+var user;
+var userPrincipalId;
+var userIsAdmin;
+var userDisplayTank;
+var userDisplayFish = [];
+var userHasGoldfish = false;
+var userStorageTank;
+var userStorageFish = [];
+
+var tankOnDisplay;
+var fishOnDisplay;
+var goldfishOnDisplay;
 
 const hiddenClass = "hidden";
 const bootcamp_canister = "yeeiw-3qaaa-aaaah-qcvmq-cai";
@@ -16,109 +28,199 @@ const backend_canister = canisterId; // "qo6ef-eaaaa-aaaai-abyyq-cai";
 const canisterAccount = "4f02cf4e2896917db36daaf2ce12d1f8b47a3a644390f7851f83afcc99e954b3"
 const walletAccount = "d85524dfcc255904b679494220f14d5f64dde746224a0834896cc00db95f4e99";
 
-const mytankbtn = document.getElementById("mytank");
-const randombtn = document.getElementById("getrandom");
-const loginbtn = document.getElementById("login");
-//const logoutbtn = document.getElementById("logout");
+document.getElementById("testnetbannerclose").addEventListener("click", (e) => {
+  document.getElementById("testnetbanner").classList.add("hidden");
+});
+
+document.getElementById("navdropbtn").addEventListener("click", (e) => {
+  document.getElementById("navdropdown").classList.toggle("hidden");
+});
+
+function setupMenu() {
+  var links = document.getElementById("navdropdown").children
+  for (let i = 0; i < links.length; i++) {
+    links[i].addEventListener("click", menuLinkClicked);
+  }
+}
+setupMenu();
+
+BigInt.prototype.toJSON = function () { return Number(this); }
+document.getElementById("exportbackupbtn").addEventListener("click", exportBackup);
+document.getElementById("importbackupbtn").addEventListener("click", importBackup);
+
 const tradegfbtn = document.getElementById("tradegoldfish");
 const donatebtn = document.getElementById("donate");
 const mintbtn = document.getElementById("mint");
-const nextrandbtn = document.getElementById("nextrand");
+const nextrandbtn = document.getElementById("nextrandom");
 
-mytankbtn.addEventListener("click", myTankClick);
-randombtn.addEventListener("click", randomTankClick);
-loginbtn.addEventListener("click", loginClick);
-//logoutbtn.addEventListener("click", logoutClick);
 tradegfbtn.addEventListener("click", tradeGfClick);
 donatebtn.addEventListener("click", donateClick);
 mintbtn.addEventListener("click", mintClick);
 nextrandbtn.addEventListener("click", nextRandClick);
 
-async function myTankClick(e) {
-  mytankbtn.disabled = true;
+async function menuLinkClicked(e) {
+  e.preventDefault();
+  // Load the clicked links data
+  document.getElementById("navdropdown").classList.add("hidden");
+  document.getElementById("navdropdown").classList.remove("random","display","storage","login","logout","about","admin");
 
-  await loadMyTank();
+  let newState = e.target.href.split("#")[1];
+  if ((newState === "about" || newState === "random") && user === undefined) {
+    document.getElementById("navdropdown").classList.add("logout");
+  } else {
+    document.getElementById("navdropdown").classList.add(newState);
+  }
 
-  mytankbtn.disabled = false;
-  mytankbtn.classList.add(hiddenClass);
-  randombtn.classList.remove(hiddenClass);
-  nextrandbtn.classList.add(hiddenClass);
-  mintbtn.classList.remove(hiddenClass);
+  hideActionPlusSections();
+
+  switch (newState) {
+    case "random":
+      loadRandomTank();
+      showSection("random");
+      break;
+    case "storage":
+      await loadDisplayTank();
+      await loadStorageInfo();
+      showSection("storage");
+      break;
+    case "login":
+    case "display":
+      await loadDisplayTank();
+      loadUserInfo();
+      showSection("display");
+      showSection("accountinfo");
+      break;
+    case "logout":
+      logout();
+      loadRandomTank();
+      showSection("random");
+      break;
+    case "about":
+      showSection("about");
+      break;
+    case "admin":
+      loadAdminPage();
+      showSection("admin");
+      break;
+  }
+
+  return false;
 }
 
-async function randomTankClick(e) {
-  randombtn.disabled = true;
+function hideActionPlusSections() {
+  var actionSections = document.getElementsByClassName("actionssection");
+  var infoSections = document.getElementsByClassName("infosection");
+  var sections = Array.from(actionSections).concat(Array.from(infoSections));
 
-  await loadRandomTank();
-
-  randombtn.disabled = false;
-  randombtn.classList.add(hiddenClass);
-  mytankbtn.classList.remove(hiddenClass);
-  mintbtn.classList.add(hiddenClass);
-  nextrandbtn.classList.remove(hiddenClass);
+  for (let i = 0; i < sections.length; i++) {
+    sections[i].classList.add("hidden");
+  }
 }
 
-async function loginClick(e) {
-  loginbtn.disabled = true;
+function showSection(section) {
+  document.getElementById(section + "section").classList.remove("hidden");
+}
 
-  await login();
-  myTankClick();
-  loginbtn.disabled = false;
-  loginbtn.classList.add(hiddenClass);
-  //logoutbtn.classList.remove(hiddenClass);
+async function loadUserInfo() {
+  document.getElementById("displayCount").innerText = userDisplayFish.length;
+  document.getElementById("storageCount").innerText = user.fish.length - userDisplayFish.length;
+  document.getElementById("tankAccCount").innerText = user.tank_accs.length;
+  document.getElementById("fishAccCount").innerText = user.fish_accs.length;
+  document.getElementById("principalId").innerText = userPrincipalId;
+  document.getElementById("loginStreak").innerText = user.login_streak;
+  document.getElementById("createdDate").innerText = new Date(Number(user.created_date / 1000000n));
+}
+
+async function loadStorage() {
+  // Check if logged in if not call login
+  // Load storage info
 }
 
 async function login() {
-  await iiAuth.authenticate();
+  if (!(await iiAuth.isAuthenticated())) {
+    await iiAuth.authenticate();
+  }
+
+  const actor = await iiAuth.getActor();
+  var results = await actor.login();
+  if (results.err && results.err.NOUSERFOUND === null) {
+    results = await actor.createNewUser();
+  }
+
+  if (results.ok) {
+    user = results.ok.user_info;
+    userPrincipalId = results.ok.principalId;
+
+    userDisplayTank = results.ok.display_tank;
+    userDisplayFish = results.ok.display_fish;
+    userHasGoldfish = results.ok.has_goldfish;
+
+    userIsAdmin = results.ok.is_admin;
+    if (userIsAdmin) {
+      document.getElementById("navdropdown").classList.add("isAdmin");
+    } else {
+      document.getElementById("navdropdown").classList.remove("isAdmin");
+    }
+  }
 }
 
-async function loadMyTank() {
-  const actor = await iiAuth.getActor();
+async function logout() {
+  user = undefined;
+  userPrincipalId = undefined;
+  userDisplayFish = undefined;
+  userDisplayFish = [];
+  userHasGoldfish = false;
+  userIsAdmin = false;
+  document.getElementById("navdropdown").classList.remove("isAdmin");
 
-  var results = await actor.allOwnedTokens();
+  await iiAuth.logout();
+}
 
-  currentTank = results.fish;
-  refreshCurrentTank(results.hasGoldfish);
+async function loadAdminPage() {
+  // show admin panel
+}
+
+async function loadDisplayTank() {
+  if (user === undefined) {
+    await login();
+  }
+
+  tankOnDisplay = userDisplayTank;
+  fishOnDisplay = userDisplayFish;
+  goldfishOnDisplay = userHasGoldfish;
+  reloadTankOnDisplay();
 }
 
 async function loadRandomTank() {
-  var results = await FishTank.randomOwnerAll();
-  currentProfile = results.profile;
-  currentTank = results.fish;
-  refreshCurrentTank(results.hasGoldfish);
+  var results = await FishTank.getRandomTank();
+  if (results.ok) {
+    tankOnDisplay = results.ok.tank;
+    fishOnDisplay = results.ok.fish;
+    goldfishOnDisplay = results.ok.has_goldfish;
+    reloadTankOnDisplay();
+  }
 }
 
-function refreshCurrentTank(hasGoldfish) {
-  updateTankColor(currentProfile.tank_color);
+function reloadTankOnDisplay() {
+  updateTankProperties();
+
   removeAllFishesFromTank();
-  for (var i = 0; i < currentTank.length; i++) {
-    loadFish(currentTank[i].id, currentTank[i].metadata.properties);
+  for (var i = 0; i < fishOnDisplay.length; i++) {
+    loadFish(tankOnDisplay.fish[i], fishOnDisplay[i].properties);
   }
 
-  if (hasGoldfish) {
+  if (goldfishOnDisplay) {
     loadGoldfish();
   }
 }
 
-function updateTankColor(color) {
+function updateTankProperties() {
   var tank = document.getElementById("tankobj").getSVGDocument().getElementById("tank");
-  tank.getElementById("water3-gradient").children[1].setAttribute("stop-color", color);
+  tank.getElementById("water3-gradient").children[1].setAttribute("stop-color", tankOnDisplay.color_bottom);
 }
 
 function showTutorial() {
   //document.get
-}
-
-async function logoutClick(e) {
-  logoutbtn.disabled = true;
-
-  await logout();
-  await randomTankClick();
-  logoutbtn.disabled = false;
-}
-
-async function logout() {
-  await iiAuth.logout();
 }
 
 async function tradeGfClick(e) {
@@ -157,12 +259,17 @@ async function mint() {
     mintbtn.innerText = "Minting Fish!";
     const actor = await iiAuth.getActor();
 
-    var mintResult = await actor.mint(0);
+    var mintResult = await actor.mint();
     if (mintResult.ok) {
       mintbtn.innerText = "Congrats on new Fish!";
-      var fishId = mintResult.ok.id;
-      currentTank.add(mintResult.ok);
-      var fishsvg = loadFish(fishId, mintResult.ok.metadata.properties);
+      var fishId = mintResult.ok.fishId;
+      var metadata = mintResult.ok.metadata;
+      user.fish.add(fishId);
+      userDisplayTank.fish.add(fishId);
+      userDisplayFish.add(metadata);
+      tankOnDisplay.fish.add(fishId);
+      fishOnDisplay.add(metadata);
+      var fishsvg = loadFish(fishId, metadata.properties);
 
       selectFish(fishsvg);
     }
@@ -344,7 +451,7 @@ function removeAllFishesFromTank() {
   }
 }
 
-setTimeout(nextRandClick, 500);
+//setTimeout(nextRandClick, 500);
 
 // Admin tasks ---------------------------------------------------------------------------------------------
 document.getElementById("resetall").addEventListener("click", resetAll);
@@ -360,5 +467,25 @@ async function resetAll(e) {
   e.target.disabled = true;
   await FishTank.resetAllState();
   e.target.disabled = false;
+}
+
+async function importBackup(e) {
+  var importtext = document.getElementById("importbackuptext").value;
+  var importjson = JSON.parse(importtext);
+  const actor = await iiAuth.getActor();
+  var result = await actor.importBackup(importjson);
+  /*if (result.ok) {
+    showInfoMsg(result.ok);
+  } else {
+    showErrorMsg(result.err);
+  }*/
+
+  document.getElementById("importbackuptext").value = "";
+}
+
+async function exportBackup(e) {
+  const actor = await iiAuth.getActor();
+  var result = await actor.exportBackup();
+  document.getElementById("exportbackuptext").value = JSON.stringify(result.ok);
 }
 // End Admin Tasks ------------------------------------------------------------------------------------------
