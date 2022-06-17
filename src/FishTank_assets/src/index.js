@@ -145,6 +145,10 @@ async function loadStorageInfo() {
   ];
 
   let tablesection = document.getElementById("storagetablesection");
+  // remove all children
+  while (tablesection.hasChildNodes()) {
+    tablesection.removeChild(tablesection.childNodes[0]);
+  }
 
   if (userDisplayTank !== undefined) {
     // Build header
