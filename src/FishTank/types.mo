@@ -37,8 +37,8 @@ module {
 
     public type TransferEvent = {
         time                : Nat;
-        from                : ?UserKey;
-        to                  : UserKey;
+        from                : ?Text;
+        to                  : Text;
     };
 
     public type FishProps = {
@@ -73,12 +73,12 @@ module {
         fishEntries             : [FishMetadata];
         displayTankEntries      : [DisplayTank];
         storageTankEntries      : [StorageTank];
-        userEntries             : [(UserKey, UserInfo)];
+        userEntries             : [(Text, UserInfo)];
         goldfishAirDropEntries  : [(UserId, Bool)];
         adoptableFishEntries    : [(FishId, Nat)];
 
         adminsEntries           : [Text];
-        donateKey               : ?Principal;
+        donateKey               : ?Text;
         logs                    : Text;
     };
 

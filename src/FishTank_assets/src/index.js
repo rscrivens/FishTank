@@ -18,6 +18,8 @@ var userHasGoldfish = false;
 var userStorageTank;
 var userStorageFish = [];
 
+var selectedFishId;
+
 var tankOnDisplay;
 var fishOnDisplay;
 var goldfishOnDisplay;
@@ -51,18 +53,20 @@ document.getElementById("importbackupbtn").addEventListener("click", importBacku
 const tradegfbtn = document.getElementById("tradegoldfish");
 const donatebtn = document.getElementById("donate");
 const mintbtn = document.getElementById("mint");
+const favoritebtn = document.getElementById("togglefavorite");
 const nextrandbtn = document.getElementById("nextrandom");
 
 tradegfbtn.addEventListener("click", tradeGfClick);
 donatebtn.addEventListener("click", donateClick);
 mintbtn.addEventListener("click", mintClick);
+favoritebtn.addEventListener("click", favoriteClick);
 nextrandbtn.addEventListener("click", nextRandClick);
 
 async function menuLinkClicked(e) {
   e.preventDefault();
   // Load the clicked links data
   document.getElementById("navdropdown").classList.add("hidden");
-  document.getElementById("navdropdown").classList.remove("random","display","storage","login","logout","about","admin");
+  document.getElementById("navdropdown").classList.remove("random", "display", "storage", "login", "logout", "about", "admin");
 
   let newState = e.target.href.split("#")[1];
   if ((newState === "about" || newState === "random") && user === undefined) {
@@ -80,7 +84,8 @@ async function menuLinkClicked(e) {
       break;
     case "storage":
       await loadDisplayTank();
-      await loadStorageInfo();
+      await getStorageTank();
+      loadStorageInfo();
       showSection("storage");
       break;
     case "login":
@@ -128,12 +133,70 @@ async function loadUserInfo() {
   document.getElementById("fishAccCount").innerText = user.fish_accs.length;
   document.getElementById("principalId").innerText = userPrincipalId;
   document.getElementById("loginStreak").innerText = user.login_streak;
-  document.getElementById("createdDate").innerText = new Date(Number(user.created_date / 1000000n));
+  document.getElementById("createdDate").innerText = formatDate(user.created_date);
 }
 
-async function loadStorage() {
-  // Check if logged in if not call login
-  // Load storage info
+async function loadStorageInfo() {
+  let cols = [
+    { name: "favorite", label: "★" }, { name: "id", label: "Id" }, { name: "name", label: "Name" },
+    { name: "level", label: "Level" }, { name: "transferrable", label: "Transferrable" }, { name: "eye_color", label: "Eye Color" },
+    { name: "color_1", label: "Color 1" }, { name: "color_2", label: "Color 2" }, { name: "color_3", label: "Color 3" },
+    { name: "speed", label: "Speed" }, { name: "size", label: "Size" }, { name: "acc_hat", label: "Hat" }
+  ];
+
+  let tablesection = document.getElementById("storagetablesection");
+
+  if (userDisplayTank !== undefined) {
+    // Build header
+    var headerrow = document.createElement("div");
+    headerrow.classList.add("storageheaderrow");
+    for (let hcindex = 0; hcindex < cols.length; hcindex++) {
+      var headcell = document.createElement("label");
+      headcell.innerText = cols[hcindex].label;
+      headcell.classList.add("storagecell");
+      switch(cols[hcindex].name){
+        case "favorite":
+          headcell.classList.add("togglefavorite");
+          break;
+      }
+      headerrow.appendChild(headcell);
+    }
+    tablesection.appendChild(headerrow);
+
+    // Build rows
+    for (let rindex = 0; rindex < userStorageTank.fish.length; rindex++) {
+      let row = document.createElement("div");
+      row.classList.add("storagerow");
+      for (let rcindex = 0; rcindex < cols.length; rcindex++) {
+        var rowcell = document.createElement("label");
+        rowcell.classList.add("storagecell");
+        let prop = cols[rcindex].name;
+        switch (prop) {
+          case "id":
+            let id = userStorageTank.fish[rindex];
+            rowcell.innerText = id;
+            break;
+          case "favorite":
+            let btn = document.createElement("button");
+            btn.dataset.fishid = userStorageTank.fish[rindex];
+            btn.classList.add("togglefavorite");
+            btn.addEventListener("click", favoriteClick);
+            updateFavoriteButton(btn,userStorageFish[rindex].favorite);
+            rowcell.appendChild(btn);
+            break;
+          default:
+            let label = userStorageFish[rindex][prop];
+            if (label === undefined) {
+              label = userStorageFish[rindex].properties[prop];
+            }
+            rowcell.innerText = label;
+        }
+
+        row.appendChild(rowcell);
+      }
+      tablesection.appendChild(row);
+    }
+  }
 }
 
 async function login() {
@@ -201,6 +264,21 @@ async function loadRandomTank() {
   }
 }
 
+async function getStorageTank() {
+  if (user === undefined) {
+    await login();
+  }
+
+  let actor = await iiAuth.getActor();
+  let result = await actor.getStorageTank(user.id);
+  if (result.ok != undefined) {
+    userStorageFish = result.ok.fish;
+    userStorageTank = result.ok.tank;
+  } else {
+    console.log("Could not retrieve Storage tank");
+  }
+}
+
 function reloadTankOnDisplay() {
   updateTankProperties();
 
@@ -242,6 +320,51 @@ async function donateClick(e) {
   console.log("donate clicked");
 }
 
+async function favoriteClick(e) {
+  let origstate = updateFavoriteButton(e.target, undefined);
+  let fishId = BigInt(e.target.dataset.fishid);
+  let actor = await iiAuth.getActor();
+  let result = await actor.toggleFavorite(fishId);
+
+  if (result.ok != undefined) {
+    updateFavoriteButton(e.target, result.ok);
+    updateFavoriteInTank(fishId, result.ok);
+  } else {
+    console.log("toggle favorite failed");
+    updateFavoriteButton(e.target, origstate);
+  }
+}
+
+function updateFavoriteInTank(fishid, isFavorite){
+  let fishInTankIndex = userDisplayTank.fish.indexOf(fishid);
+  if(fishInTankIndex !== -1){
+    userDisplayFish[fishInTankIndex].favorite = isFavorite;
+    fishInTankIndex = tankOnDisplay.fish.indexOf(fishid);
+    if(fishInTankIndex !== -1){
+      fishOnDisplay[fishInTankIndex].favorite = isFavorite;
+    }
+  } else {
+    fishInTankIndex = userStorageTank.fish.indexOf(fishid);
+    userStorageFish[fishInTankIndex].favorite = isFavorite;
+  }
+}
+
+function updateFavoriteButton(btn, state) {
+  if (state === true) {
+    btn.innerText = "★";
+    btn.title = "Click to unfavorite";
+    btn.disabled = false;
+  } else if (state === false) {
+    btn.innerText = "☆";
+    btn.title = "Click to favorite";
+    btn.disabled = false;
+  } else {
+    btn.innerText = "...";
+    btn.title = "Changing favorite...";
+    btn.disabled = true;
+  }
+}
+
 async function mintClick(e) {
   mintbtn.disabled = true;
 
@@ -264,11 +387,11 @@ async function mint() {
       mintbtn.innerText = "Congrats on new Fish!";
       var fishId = mintResult.ok.fishId;
       var metadata = mintResult.ok.metadata;
-      user.fish.add(fishId);
-      userDisplayTank.fish.add(fishId);
-      userDisplayFish.add(metadata);
-      tankOnDisplay.fish.add(fishId);
-      fishOnDisplay.add(metadata);
+      user.fish.push(fishId);
+      userDisplayTank.fish.push(fishId);
+      userDisplayFish.push(metadata);
+      tankOnDisplay.fish.push(fishId);
+      fishOnDisplay.push(metadata);
       var fishsvg = loadFish(fishId, metadata.properties);
 
       selectFish(fishsvg);
@@ -298,9 +421,6 @@ function selectFish(fishsvg) {
 
   if (fishsvg.classList.contains("selectedfish")) {
     fishsvg.classList.remove("selectedfish");
-    tradegfbtn.classList.add("hidden");
-    donatebtn.classList.add("hidden");
-    mintbtn.classList.remove("hidden");
     document.getElementById("fishinfo").classList.add("hidden");
     //triggerDelayedRedraw();
   } else {
@@ -327,23 +447,93 @@ function selectFish(fishsvg) {
     // Show the fish info
     var fishid = fishsvg.id;
     if (fishid !== "goldfish") {
+      let fishinfosection = document.getElementById("fishinfosection");
+      while (fishinfosection.hasChildNodes()) {
+        fishinfosection.removeChild(fishinfosection.childNodes[0]);
+      }
+
       fishid = fishid.replace("fish_", "");
-      var fishdata = currentTank.find((value) => {
-        console.log(fishid + " === " + value.id);
-        return Number(fishid) === Number(value.id);
-      });
-      document.getElementById("fishid").innerText = fishdata.id;
-      document.getElementById("fishdate").innerText = new Date(Number(fishdata.metadata.minted_at / 1000000n));
-      document.getElementById("fishtradable").innerText = fishdata.metadata.transferrable;
-      document.getElementById("fishcolor1text").innerText = fishdata.metadata.properties.color_1;
-      document.getElementById("fishcolor1box").style.backgroundColor = fishdata.metadata.properties.color_1;
-      document.getElementById("fishcolor2text").innerText = fishdata.metadata.properties.color_2;
-      document.getElementById("fishcolor2box").style.backgroundColor = fishdata.metadata.properties.color_2;
-      document.getElementById("fishcolor3text").innerText = fishdata.metadata.properties.color_3;
-      document.getElementById("fishcolor3box").style.backgroundColor = fishdata.metadata.properties.color_3;
-      document.getElementById("fishinfo").classList.remove("hidden");
+
+      var fishdata = fishOnDisplay[tankOnDisplay.fish.indexOf(BigInt(fishid))];
+      fishinfosection.appendChild(createFishInfoEle("id", "id: ", fishid, ""));
+      fishinfosection.appendChild(createFishInfoEle("date", "date: ", formatDate(fishdata.owner_history[0].time), ""));
+      fishinfosection.appendChild(createFishInfoEle("name", "name: ", fishdata.name, ""));
+      fishinfosection.appendChild(createFishInfoEle("tradable", "tradable: ", fishdata.transferrable, ""));
+      fishinfosection.appendChild(createFishInfoEle("level", "level: ", fishdata.level, ""));
+      fishinfosection.appendChild(createFishInfoEle("favorite", "favorite: ", fishdata.favorite, ""));
+
+      fishinfosection.appendChild(createFishInfoEle("speed", "speed: ", fishdata.properties.speed, ""));
+      fishinfosection.appendChild(createFishInfoEle("size", "size: ", fishdata.properties.size, ""));
+      fishinfosection.appendChild(createFishInfoEle("type", "type: ", fishdata.properties.body_type, ""));
+      fishinfosection.appendChild(createFishInfoEle("acchat", "acchat: ", fishdata.properties.acc_hat, ""));
+
+      fishinfosection.appendChild(createFishInfoColorEle("eye", "Eyes: ", fishdata.properties.eye_color, ""));
+      fishinfosection.appendChild(createFishInfoColorEle("color1", "Color 1: ", fishdata.properties.color_1, ""));
+      fishinfosection.appendChild(createFishInfoColorEle("color2", "Color 2: ", fishdata.properties.color_2, ""));
+      fishinfosection.appendChild(createFishInfoColorEle("color3", "Color 3: ", fishdata.properties.color_3, ""));
+
+      let favBtn = document.getElementById("togglefavorite");
+      favBtn.dataset.fishid = fishid;
+      updateFavoriteButton(favBtn, fishdata.favorite);
+
+      document.getElementById("selectedfishsection").classList.remove("hidden");
     }
   }
+}
+
+function formatDate(serverDate) {
+  let dateObj = new Date(Number(serverDate / 1000000n));
+  let formatedDate = new Intl.DateTimeFormat('en',
+  {
+    day: '2-digit',
+    month : 'short',
+    year : 'numeric'
+  }).format(dateObj);
+
+  return formatedDate;
+}
+
+function createFishInfoEle(eleId, label, value, eleClass) {
+  var wrapper = document.createElement("p");
+  var valueText = document.createElement("text");
+  wrapper.innerText = label;
+  valueText.innerText = value;
+  wrapper.appendChild(valueText);
+  if (eleClass !== "") {
+    wrapper.classList.add(eleClass);
+  }
+  wrapper.id = "fishinfo" + eleId;
+
+  return wrapper;
+}
+
+function createFishInfoColorEle(eleId, label, value, eleClass) {
+  /*<p>Color #1:
+  <label id="fishcolor1box" class="color-box"></label>
+  <text id="fishcolor1text" class="color-box-label"></text>
+   </p>*/
+  var wrapper = document.createElement("p");
+  var box = document.createElement("label");
+  var valueText = document.createElement("text");
+
+  wrapper.innerText = label;
+  if (eleClass !== "") {
+    wrapper.classList.add(eleClass);
+  }
+  wrapper.id = "fishinfocolor" + eleId;
+
+  box.style.backgroundColor = value;
+  box.classList.add("color-box");
+  box.id = "fishinfocolor" + eleId + "box";
+
+  valueText.innerText = value;
+  valueText.classList.add("color-box-text");
+  valueText.id = "fishinfocolor" + eleId + "text";
+
+  wrapper.appendChild(box);
+  wrapper.appendChild(valueText);
+
+  return wrapper;
 }
 
 function loadFish(fishId, properties) {

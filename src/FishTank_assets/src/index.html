@@ -43,6 +43,7 @@
 
     <section id="storagesection" class="actionssection hidden">
       <button id="sort" class="action">Sort</button>
+      <div id="storagetablesection" class="storagetable"></div>
     </section>
 
     <section id="aboutsection" class="actionssection hidden">
@@ -80,26 +81,11 @@
       </div>
     </section>
 
-    <section id="fishinfosection" class="infosection hidden">
-      <p>Id: <text id="fishid"></text></p>
-      <p>Name: <text id="fishname"></text></p>
-      <p>Created: <text id="fishdate"></text></p>
-      <p>Color #1:
-        <label id="fishcolor1box" class="color-box"></label>
-        <text id="fishcolor1text" class="color-box-label"></text>
-      </p>
-      <p>Color #2:
-        <label id="fishcolor2box" class="color-box"></label>
-        <text id="fishcolor2text" class="color-box-label"></text>
-      </p>
-      <p>Color #3:
-        <label id="fishcolor3box" class="color-box"></label>
-        <text id="fishcolor3text" class="color-box-label"></text>
-      </p>
-      <p>Tradable: <text id="fishtradable"></text></p>
+    <section id="selectedfishsection" class="infosection hidden">
       <button id="donate">Donate!</button>
-      <button id="sendToDisplay">Send to Display</button>
       <button id="sendToStorage">Send to Storage</button>
+      <button id="togglefavorite" class="togglefavorite"></button>
+      <section id="fishinfosection"></section>
     </section>
 
     <section id="testnetbanner">

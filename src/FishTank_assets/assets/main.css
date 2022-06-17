@@ -53,6 +53,16 @@ button.nav {
   padding-left: 5px;
 }
 
+.togglefavorite {
+  color: gold;
+  background-color: white;
+  border-style: none;
+  font-size: 1.5em;
+  line-height: 1em;
+  vertical-align: middle;
+  text-align: center;
+}
+
 .dropbtn {
   background-color: #3498DB;
   color: white;
@@ -162,4 +172,26 @@ button.hidden {
 
 #navdropdown.isAdmin a#admin{
   display: block !important;
+}
+
+.storagetable {
+  width: 95%;
+  display:table;
+}
+
+.storagerow,
+.storageheaderrow {
+  display:table-row;
+}
+
+.storagecell {
+  display:table-cell;
+}
+
+.storageheaderrow label {
+  border-bottom: black solid thin;
+}
+
+.storagecell button {
+  width: 100%;
 }

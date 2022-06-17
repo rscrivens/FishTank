@@ -56,7 +56,7 @@ actor class DRC721() {
         return _getDisplayTank(u_id);
     };
 
-    public shared query func getOwner(fishId : T.FishId) : async Result.Result<T.UserKey,T.ErrorCode> {
+    public shared query func getOwner(fishId : T.FishId) : async Result.Result<Text,T.ErrorCode> {
         return _getOwner(fishId);
     };
 
@@ -161,7 +161,7 @@ actor class DRC721() {
         return _setFishName(msg.caller, fishId, name);
     };
 
-    public shared(msg) func toggleFavorite(fishId:T.FishId) : async Result.Result<Text,T.ErrorCode>{
+    public shared(msg) func toggleFavorite(fishId:T.FishId) : async Result.Result<Bool,T.ErrorCode>{
         if(Principal.isAnonymous(msg.caller)) {
             return #err(#LOGINREQUIRED);
         };
@@ -433,7 +433,7 @@ actor class DRC721() {
         };
     };
 
-    private func _getOwner(fishId : T.FishId) : Result.Result<T.UserKey, T.ErrorCode> {
+    private func _getOwner(fishId : T.FishId) : Result.Result<Text, T.ErrorCode> {
         switch(fish_buff.getOpt(fishId)){
             case(null){
                 return #err(#NOFISHFOUND);
@@ -471,7 +471,7 @@ actor class DRC721() {
     /*************************** Private Update Functions *********************************/
 
     private func _addToDisplayTank(u_key: T.UserKey, fishId: T.FishId) : Result.Result<Text, T.ErrorCode>{
-        if(_isOwner(u_key, fishId)){
+        if(not _isOwner(u_key, fishId)){
             return #err(#NOTAUTHORIZED);
         };
 
@@ -519,7 +519,7 @@ actor class DRC721() {
     };
 
     private func _addToStorageTank(u_key: T.UserKey, fishId: T.FishId) : Result.Result<Text, T.ErrorCode>{
-        if(_isOwner(u_key, fishId)){
+        if(not _isOwner(u_key, fishId)){
             return #err(#NOTAUTHORIZED);
         };
 
@@ -650,7 +650,7 @@ actor class DRC721() {
             };
             case(?fish){
                 let fish = fish_buff.get(fish_id);
-                if(_isOwner(u_key, fish_id)){
+                if(not _isOwner(u_key, fish_id)){
                     return #err(#NOTAUTHORIZED);
                 };
 
@@ -666,20 +666,20 @@ actor class DRC721() {
         };
     };
 
-    private func _toggleFavorite(u_key: T.UserKey, fish_id:T.FishId) : Result.Result<Text,T.ErrorCode> {
+    private func _toggleFavorite(u_key: T.UserKey, fish_id:T.FishId) : Result.Result<Bool,T.ErrorCode> {
         switch(fish_buff.getOpt(fish_id)){
             case(null){
                 return #err(#NOFISHFOUND);
             };
             case(?fish){
-                if(_isOwner(u_key, fish_id)){
+                if(not _isOwner(u_key, fish_id)){
                     return #err(#NOTAUTHORIZED);
                 };
 
                 var new_fish = _editFish(fish, ?(not fish.favorite), null, null, null, null, null);
                 fish_buff.put(fish_id, new_fish);
 
-                return #ok("Favorited = " # Bool.toText(new_fish.favorite));
+                return #ok(new_fish.favorite);
             };
         };
     };
@@ -724,8 +724,21 @@ actor class DRC721() {
     };
     
     private func _isOwner(u_key: T.UserKey, fish_id: T.FishId) : Bool  {
-        var fish = fish_buff.get(fish_id);
-        return Principal.equal(u_key, fish.owner_history[fish.owner_history.size()].to)
+        switch(users_hash.get(u_key)){
+            case(null){
+                _log("user not found in isOwner");
+                return false;
+            };
+            case(?user){
+                switch(Array.find<T.FishId>(user.fish,func(user_fish_id:T.FishId){
+                    _log("comparing: " # Nat.toText(fish_id) # " to " # Nat.toText(user_fish_id));
+                    return fish_id == user_fish_id;
+                })){
+                    case(null){ _log("matching fish not found"); return false; };
+                    case(_){  _log("matching fish found"); return true; };
+                };
+            };
+        };
     };
 
     private func _getRandomTank() : async Result.Result<{tank:T.DisplayTank;fish:[T.FishMetadata];has_goldfish:Bool},T.ErrorCode> {
@@ -901,7 +914,7 @@ actor class DRC721() {
     };    
     */
 
-    private func _mint(to : Principal, transferrable : Bool) : async Result.Result<{fishId:T.FishId; metadata:T.FishMetadata}, T.ErrorCode> {
+    private func _mint(u_key : T.UserKey, transferrable : Bool) : async Result.Result<{fishId:T.FishId; metadata:T.FishMetadata}, T.ErrorCode> {
         let id = fish_buff.size();
         let fish: T.FishMetadata = {
             favorite = false;
@@ -909,7 +922,7 @@ actor class DRC721() {
             name = "";
             owner_history = Array.make<T.TransferEvent>({
                 from = null;
-                to = to;
+                to = Principal.toText(u_key);
                 time = Int.abs(Time.now());
             });
             properties: T.FishProps = {
@@ -929,13 +942,28 @@ actor class DRC721() {
         // add fish to users fish list
         // add fish to display tank
         fish_buff.add(fish);
-        
-        let result = _addToDisplayTank(to, id);        
+        let user = switch(users_hash.get(u_key)){case(null){return #err(#NOUSERFOUND)};case(?u){u};};
+        let new_fish = Array.tabulate(user.fish.size() + 1, func (index:Nat): T.FishId{
+            if(index != user.fish.size()){
+                user.fish[index];
+            } else {
+                id;
+            };
+        });
+        let new_user_info : T.UserInfo = _editUserInfo(user, null, ?new_fish,  null, null, null, null, null);
+        users_hash.put(u_key, new_user_info);
+
+        let result = _addToDisplayTank(u_key, id);
+        switch(result){
+            case(#err(error_code)){ return #err(error_code)};
+            case(_){};
+        };
         
         return #ok({fishId=id; metadata=fish});
     };
 
     private func _log(msg: Text) : () {
+        Debug.print(msg);
         logs:= logs # "\n" # msg;
     };
 
@@ -1110,14 +1138,26 @@ actor class DRC721() {
     ];
 
     private func _exportBackup(): Result.Result<T.Backup, T.ErrorCode>{
+        let users : [(T.UserKey, T.UserInfo)] = Iter.toArray(users_hash.entries());
+        let export_users : [(Text, T.UserInfo)] = Array.tabulate<(Text,T.UserInfo)>(users.size(), func(index: Nat){
+            return (Principal.toText(users[index].0),users[index].1);
+        });
+
+        let export_donate_key : ?Text = switch(donateKey){
+            case(null){ null };
+            case(?d){
+                ?Principal.toText(d);
+            };
+        };
+
         return #ok({
-            userEntries = Iter.toArray(users_hash.entries());
+            userEntries = export_users;
             fishEntries = fish_buff.toArray();
             displayTankEntries = display_tank_buff.toArray();
             storageTankEntries = storage_tank_buff.toArray();
             goldfishAirDropEntries = Iter.toArray(goldfishAirDrops.entries());
             adoptableFishEntries = Iter.toArray(adoptable_fish_hash.entries());
-            donateKey = donateKey;
+            donateKey = export_donate_key;
             adminsEntries = adminsEntries;
             logs = logs;
         });
@@ -1125,7 +1165,7 @@ actor class DRC721() {
 
     private func _importBackup(backup: T.Backup): Result.Result<Text,T.ErrorCode> {
         for(key in users_hash.keys()){ users_hash.delete(key); };
-        for(val in backup.userEntries.vals()){ users_hash.put(val.0,val.1); };
+        for(val in backup.userEntries.vals()){ users_hash.put(Principal.fromText(val.0),val.1); };
 
         for(key in goldfishAirDrops.keys()){ goldfishAirDrops.delete(key); };
         for(val in backup.goldfishAirDropEntries.vals()){ goldfishAirDrops.put(val.0,val.1); };
@@ -1141,7 +1181,12 @@ actor class DRC721() {
         for (tank in backup.storageTankEntries.vals()) { storage_tank_buff.add(tank); };
 
         adminsEntries := backup.adminsEntries;
-        donateKey := backup.donateKey;
+        switch(backup.donateKey){
+            case(null){ };
+            case(?d){
+                donateKey := ?Principal.fromText(d);
+            };
+        };
 
         return #ok("imported backup");
     };
