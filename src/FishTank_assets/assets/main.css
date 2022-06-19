@@ -42,7 +42,7 @@ button.nav {
 
 
 .color-box {
-  width: 1.5rem;
+  width: 3rem;
   height: 1.5rem;
   display: inline-block;
   background-color: #ccc;
@@ -194,4 +194,9 @@ button.hidden {
 
 .storagecell button {
   width: 100%;
+}
+
+.storagecell input[type="checkbox"]{
+  width: 1.5em;
+  height: 1.5em;
 }

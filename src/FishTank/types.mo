@@ -65,14 +65,20 @@ module {
         effect              : Text;
     };
 
-    public type StorageTank = {
+    public type StakingTank = {
         fish                : [FishId];
+        color_bottom        : Text;
+        color_bg            : Text;
+        acc_left            : Text;
+        acc_right           : Text;
+        effect              : Text;
     };
 
     public type Backup = {
         fishEntries             : [FishMetadata];
+        userIdKeyEntries        : [Text];
         displayTankEntries      : [DisplayTank];
-        storageTankEntries      : [StorageTank];
+        stakingTankEntries      : [StakingTank];
         userEntries             : [(Text, UserInfo)];
         goldfishAirDropEntries  : [(UserId, Bool)];
         adoptableFishEntries    : [(FishId, Nat)];

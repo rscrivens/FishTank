@@ -16,13 +16,21 @@ var userDisplayTank;
 var userDisplayFish = [];
 var userHasGoldfish = false;
 var userStorageTank;
-var userStorageFish = [];
 
-var selectedFishId;
+var storageSortCol = "id";
+var storageSortAsc = true;
 
 var tankOnDisplay;
 var fishOnDisplay;
 var goldfishOnDisplay;
+
+var storageCols = [
+  { name: "favorite", label: "★" }, { name: "id", label: "Id" }, { name: "name", label: "Name" },
+  { name: "level", label: "Level" }, { name: "transferrable", label: "Transferrable" }, { name: "eye_color", label: "Eye Color" },
+  { name: "color_1", label: "Color 1" }, { name: "color_2", label: "Color 2" }, { name: "color_3", label: "Color 3" },
+  { name: "speed", label: "Speed" }, { name: "size", label: "Size" }, { name: "acc_hat", label: "Hat" },
+  { name: "displayed", label: "Displayed" }, { name: "staked", label: "Staked" }, {name: "donate", label: "Donate!"}
+];
 
 const hiddenClass = "hidden";
 const bootcamp_canister = "yeeiw-3qaaa-aaaah-qcvmq-cai";
@@ -53,13 +61,10 @@ document.getElementById("importbackupbtn").addEventListener("click", importBacku
 const tradegfbtn = document.getElementById("tradegoldfish");
 const donatebtn = document.getElementById("donate");
 const mintbtn = document.getElementById("mint");
-const favoritebtn = document.getElementById("togglefavorite");
 const nextrandbtn = document.getElementById("nextrandom");
 
 tradegfbtn.addEventListener("click", tradeGfClick);
-donatebtn.addEventListener("click", donateClick);
 mintbtn.addEventListener("click", mintClick);
-favoritebtn.addEventListener("click", favoriteClick);
 nextrandbtn.addEventListener("click", nextRandClick);
 
 async function menuLinkClicked(e) {
@@ -137,13 +142,6 @@ async function loadUserInfo() {
 }
 
 async function loadStorageInfo() {
-  let cols = [
-    { name: "favorite", label: "★" }, { name: "id", label: "Id" }, { name: "name", label: "Name" },
-    { name: "level", label: "Level" }, { name: "transferrable", label: "Transferrable" }, { name: "eye_color", label: "Eye Color" },
-    { name: "color_1", label: "Color 1" }, { name: "color_2", label: "Color 2" }, { name: "color_3", label: "Color 3" },
-    { name: "speed", label: "Speed" }, { name: "size", label: "Size" }, { name: "acc_hat", label: "Hat" }
-  ];
-
   let tablesection = document.getElementById("storagetablesection");
   // remove all children
   while (tablesection.hasChildNodes()) {
@@ -154,13 +152,21 @@ async function loadStorageInfo() {
     // Build header
     var headerrow = document.createElement("div");
     headerrow.classList.add("storageheaderrow");
-    for (let hcindex = 0; hcindex < cols.length; hcindex++) {
+    for (let hcindex = 0; hcindex < storageCols.length; hcindex++) {
       var headcell = document.createElement("label");
-      headcell.innerText = cols[hcindex].label;
+      headcell.innerText = storageCols[hcindex].label;
       headcell.classList.add("storagecell");
-      switch(cols[hcindex].name){
+      switch (storageCols[hcindex].name) {
         case "favorite":
           headcell.classList.add("togglefavorite");
+          break;
+        case "color_1":
+        case "color_2":
+        case "color_3":
+        case "eye_color":
+        case "displayed":
+        case "staked":
+          headcell.style.textAlign = "center";
           break;
       }
       headerrow.appendChild(headcell);
@@ -171,27 +177,78 @@ async function loadStorageInfo() {
     for (let rindex = 0; rindex < userStorageTank.fish.length; rindex++) {
       let row = document.createElement("div");
       row.classList.add("storagerow");
-      for (let rcindex = 0; rcindex < cols.length; rcindex++) {
+      var fishId = userStorageTank.fish[rindex];
+      row.dataset.fishid = fishId;
+
+      for (let rcindex = 0; rcindex < storageCols.length; rcindex++) {
         var rowcell = document.createElement("label");
         rowcell.classList.add("storagecell");
-        let prop = cols[rcindex].name;
+        let prop = storageCols[rcindex].name;
+        rowcell.id = prop + "_" + fishId;
+
         switch (prop) {
           case "id":
-            let id = userStorageTank.fish[rindex];
+            let id = fishId;
             rowcell.innerText = id;
             break;
           case "favorite":
             let btn = document.createElement("button");
-            btn.dataset.fishid = userStorageTank.fish[rindex];
             btn.classList.add("togglefavorite");
             btn.addEventListener("click", favoriteClick);
-            updateFavoriteButton(btn,userStorageFish[rindex].favorite);
+            updateFavoriteButton(btn, userStorageTank.fishMD[rindex].favorite);
             rowcell.appendChild(btn);
             break;
+          case "displayed":
+            let dCheckbox = document.createElement("input");
+            dCheckbox.type = "checkbox";
+            if(userStorageTank.inDisplay.indexOf(fishId) !== -1){
+              dCheckbox.checked = true;
+            }
+            dCheckbox.addEventListener("click", toggleDisplayTank);
+            rowcell.appendChild(dCheckbox);
+            rowcell.style.textAlign = "center";
+            break;
+          case "staked":
+            let sCheckbox = document.createElement("input");
+            sCheckbox.type = "checkbox";
+            if(userStorageTank.inStaking.indexOf(fishId) !== -1){
+              sCheckbox.checked = true;
+            }
+            // sCheckbox.addEventListener("click", toggleStakingTank);
+            sCheckbox.disabled = true;
+            rowcell.appendChild(sCheckbox);
+            rowcell.style.textAlign = "center";
+            break;
+          case "color_1":
+          case "color_2":
+          case "color_3":
+          case "eye_color":
+            let color = userStorageTank.fishMD[rindex].properties[prop];
+
+            let box = document.createElement("label");
+            box.style.backgroundColor = color;
+            box.title = color;
+            box.classList.add("color-box");
+
+            rowcell.style.textAlign = "center";
+
+            rowcell.appendChild(box);
+            break;
+          case "donate":
+            let donatebtn = document.createElement("button");
+            donatebtn.innerText = storageCols[rcindex].label;
+            donateBtn.title = "Donate fish with id " + fishId;
+            if(userStorageTank.fishMD[rindex].favorite === true){
+              donatebtn.disabled = true;
+              donateBtn.title = "Unfavorite fish if you want to donate";
+            }
+            donatebtn.addEventListener("click", donateClick);
+            rowcell.appendChild(donatebtn);
+            break;
           default:
-            let label = userStorageFish[rindex][prop];
+            let label = userStorageTank.fishMD[rindex][prop];
             if (label === undefined) {
-              label = userStorageFish[rindex].properties[prop];
+              label = userStorageTank.fishMD[rindex].properties[prop];
             }
             rowcell.innerText = label;
         }
@@ -201,6 +258,40 @@ async function loadStorageInfo() {
       tablesection.appendChild(row);
     }
   }
+}
+
+
+
+async function toggleDisplayTank(e){
+  e.target.disabled = true;
+
+  var fishId = BigInt(e.target.id.split("_")[1]);
+  const actor = await iiAuth.getActor();
+  var results = await actor.toggleInDisplayTank(fishId);
+  if(results.ok !== undefined){
+    if(results.ok === true){
+      // Add to Display
+      userDisplayTank.fish.push(fishId);
+      var arrIndex = userStorageTank.fish.indexOf(fishId);
+      userDisplayFish.push(userStorageTank.fishMD[arrIndex]);
+      loadFish(fishId, userStorageTank.fishMD[arrIndex].properties);
+      // Remove from staking in future update
+    } else {
+      // Remove from Display
+      let fishIndex = userDisplayTank.fish.indexOf(fishId);
+      userDisplayTank.fish.splice(fishIndex, 1);
+      userDisplayFish.splice(fishIndex, 1);
+      removeFishFromTank(fishId);
+    }
+
+    tankOnDisplay = userDisplayTank;
+    fishOnDisplay = userDisplayFish;
+  } else {
+    console.log("failed: " + results.err);
+    e.target.checked = !e.target.checked;
+  }
+
+  e.target.disabled = false;
 }
 
 async function login() {
@@ -276,8 +367,7 @@ async function getStorageTank() {
   let actor = await iiAuth.getActor();
   let result = await actor.getStorageTank(user.id);
   if (result.ok != undefined) {
-    userStorageFish = result.ok.fish;
-    userStorageTank = result.ok.tank;
+    userStorageTank = result.ok;
   } else {
     console.log("Could not retrieve Storage tank");
   }
@@ -321,35 +411,37 @@ async function tradeGfClick(e) {
 }
 
 async function donateClick(e) {
-  console.log("donate clicked");
+  console.log("donate clicked on fish: " + BigInt(e.target.parentElement.parentElement.dataset.fishid));
 }
 
 async function favoriteClick(e) {
   let origstate = updateFavoriteButton(e.target, undefined);
-  let fishId = BigInt(e.target.dataset.fishid);
+  let fishId = BigInt(e.target.parentElement.parentElement.dataset.fishid);
+
   let actor = await iiAuth.getActor();
   let result = await actor.toggleFavorite(fishId);
 
   if (result.ok != undefined) {
     updateFavoriteButton(e.target, result.ok);
     updateFavoriteInTank(fishId, result.ok);
+    updateFavoriteRelatedButtons(fishId, result.ok);
   } else {
     console.log("toggle favorite failed");
     updateFavoriteButton(e.target, origstate);
   }
 }
 
-function updateFavoriteInTank(fishid, isFavorite){
+function updateFavoriteInTank(fishid, isFavorite) {
   let fishInTankIndex = userDisplayTank.fish.indexOf(fishid);
-  if(fishInTankIndex !== -1){
+  if (fishInTankIndex !== -1) {
     userDisplayFish[fishInTankIndex].favorite = isFavorite;
     fishInTankIndex = tankOnDisplay.fish.indexOf(fishid);
-    if(fishInTankIndex !== -1){
+    if (fishInTankIndex !== -1) {
       fishOnDisplay[fishInTankIndex].favorite = isFavorite;
     }
   } else {
     fishInTankIndex = userStorageTank.fish.indexOf(fishid);
-    userStorageFish[fishInTankIndex].favorite = isFavorite;
+    userStorageTank.fishMD[fishInTankIndex].favorite = isFavorite;
   }
 }
 
@@ -366,6 +458,16 @@ function updateFavoriteButton(btn, state) {
     btn.innerText = "...";
     btn.title = "Changing favorite...";
     btn.disabled = true;
+  }
+}
+
+function updateFavoriteRelatedButtons(fishId, state){
+  var donateBtn = document.getElementById("donate_" + fishId).firstChild;
+  donateBtn.disabled = state;
+  if(state === true){
+    donateBtn.title = "Unfavorite fish if you want to donate";
+  } else {
+    donateBtn.title = "Donate fish with id " + fishId;
   }
 }
 
@@ -477,7 +579,6 @@ function selectFish(fishsvg) {
       fishinfosection.appendChild(createFishInfoColorEle("color3", "Color 3: ", fishdata.properties.color_3, ""));
 
       let favBtn = document.getElementById("togglefavorite");
-      favBtn.dataset.fishid = fishid;
       updateFavoriteButton(favBtn, fishdata.favorite);
 
       document.getElementById("selectedfishsection").classList.remove("hidden");
@@ -488,11 +589,11 @@ function selectFish(fishsvg) {
 function formatDate(serverDate) {
   let dateObj = new Date(Number(serverDate / 1000000n));
   let formatedDate = new Intl.DateTimeFormat('en',
-  {
-    day: '2-digit',
-    month : 'short',
-    year : 'numeric'
-  }).format(dateObj);
+    {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    }).format(dateObj);
 
   return formatedDate;
 }
@@ -643,6 +744,12 @@ function removeAllFishesFromTank() {
       tank.removeChild(children[childIndex]);
     }
   }
+}
+
+function removeFishFromTank(fishId) {
+  var tank = document.getElementById("tankobj").getSVGDocument().getElementById("tank");
+  var fish = document.getElementById("tankobj").getSVGDocument().getElementById("fish_" + fishId);
+  tank.removeChild(fish);
 }
 
 //setTimeout(nextRandClick, 500);

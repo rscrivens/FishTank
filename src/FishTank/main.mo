@@ -27,14 +27,16 @@ actor class DRC721() {
 
     private stable var fishEntries : [T.FishMetadata] = [];
     private stable var userEntries : [(T.UserKey, T.UserInfo)] = [];
+    private stable var userIdKeyEntries : [Text] = [];
     private stable var displayTankEntries : [T.DisplayTank] = [];
-    private stable var storageTankEntries : [T.StorageTank] = [];
+    private stable var stakingTankEntries : [T.StakingTank] = [];
     private stable var goldfishAirDropEntries : [(T.UserId, Bool)] = [];
     private stable var adoptableFishEntries: [(T.FishId, Nat)] = [];
 
     private let fish_buff = Buffer.Buffer<T.FishMetadata>(0);
+    private let userIdKey_buff = Buffer.Buffer<Text>(0);
     private let display_tank_buff = Buffer.Buffer<T.DisplayTank>(0);
-    private let storage_tank_buff = Buffer.Buffer<T.StorageTank>(0);
+    private let staking_tank_buff = Buffer.Buffer<T.StakingTank>(0);
     private let users_hash : HashMap.HashMap<T.UserKey, T.UserInfo> = HashMap.fromIter<T.UserKey, T.UserInfo>(userEntries.vals(), 10, Principal.equal, Principal.hash);
     private let goldfishAirDrops : HashMap.HashMap<T.UserId, Bool> = HashMap.fromIter<T.UserId, Bool>(goldfishAirDropEntries.vals(), 10, Nat.equal, Hash.hash);
     private let adoptable_fish_hash : HashMap.HashMap<T.FishId, Nat> = HashMap.fromIter<T.FishId, Nat>(adoptableFishEntries.vals(), 10, Nat.equal, Hash.hash);
@@ -60,7 +62,11 @@ actor class DRC721() {
         return _getOwner(fishId);
     };
 
-    public shared query func getStorageTank(u_id : T.UserId) : async Result.Result<{tank:T.StorageTank;fish:[T.FishMetadata]},T.ErrorCode> {
+    public shared query func getStakingTank(u_id : T.UserId) : async Result.Result<{tank:T.StakingTank;fish:[T.FishMetadata]},T.ErrorCode> {
+        return _getStakingTank(u_id);
+    };
+
+    public shared query func getStorageTank(u_id : T.UserId) : async Result.Result<{fish:[T.FishId];fishMD:[T.FishMetadata];inDisplay:[T.FishId];inStaking:[T.FishId]},T.ErrorCode> {
         return _getStorageTank(u_id);
     };
 
@@ -85,20 +91,20 @@ actor class DRC721() {
     };
 
     /*************************** Update Functions *********************************/
-    public shared(msg) func addToDisplayTank(fishId:T.FishId) : async Result.Result<Text,T.ErrorCode>{
+    public shared(msg) func toggleInDisplayTank(fishId:T.FishId) : async Result.Result<Bool,T.ErrorCode>{
         if(Principal.isAnonymous(msg.caller)) {
             return #err(#LOGINREQUIRED);
         };
         
-        return _addToDisplayTank(msg.caller, fishId);
+        return _toggleInDisplayTank(msg.caller, fishId);
     };
 
-    public shared(msg) func addToStorageTank(fishId:T.FishId) : async Result.Result<Text,T.ErrorCode>{
+    public shared(msg) func toggleInStakingTank(fishId:T.FishId) : async Result.Result<Bool,T.ErrorCode>{
         if(Principal.isAnonymous(msg.caller)) {
             return #err(#LOGINREQUIRED);
         };
 
-        return _addToStorageTank(msg.caller, fishId);
+        return _toggleInStakingTank(msg.caller, fishId);
     };
 
 /*
@@ -286,7 +292,7 @@ actor class DRC721() {
                 for(k in adoptable_fish_hash.keys()) { adoptable_fish_hash.delete(k); };
                 fish_buff.clear();
                 display_tank_buff.clear();
-                storage_tank_buff.clear();
+                staking_tank_buff.clear();
 
                 return #ok();
             };
@@ -444,17 +450,49 @@ actor class DRC721() {
         };
     };
 
-    private func _getStorageTank(u_id : T.UserId) : Result.Result<{tank:T.StorageTank;fish:[T.FishMetadata]},T.ErrorCode> {
-        switch(storage_tank_buff.getOpt(u_id)){
+    private func _getStakingTank(u_id : T.UserId) : Result.Result<{tank:T.StakingTank;fish:[T.FishMetadata]},T.ErrorCode> {
+        switch(staking_tank_buff.getOpt(u_id)){
             case(null){
                 return #err(#NOUSERFOUND);
             };
-            case(?storage_tank){
+            case(?staking_tank){
 
-                let fish_metadata:[T.FishMetadata] = _getFishMetadata(storage_tank.fish);
-                return #ok({tank=storage_tank;fish=fish_metadata});
+                let fish_metadata:[T.FishMetadata] = _getFishMetadata(staking_tank.fish);
+                return #ok({tank=staking_tank;fish=fish_metadata});
             };
         };
+    };
+
+    private func _getStorageTank(u_id : T.UserId) : Result.Result<{fish:[T.FishId];fishMD:[T.FishMetadata];inDisplay:[T.FishId];inStaking:[T.FishId]},T.ErrorCode> {
+        let stakedFish : [T.FishId] = switch(staking_tank_buff.getOpt(u_id)){
+            case(null){
+                return #err(#NOUSERFOUND);
+            };
+            case(?staking_tank){
+                staking_tank.fish;
+            };
+        };
+
+        let displayedFish : [T.FishId] = switch(display_tank_buff.getOpt(u_id)){
+            case(null){
+                return #err(#NOUSERFOUND);
+            };
+            case(?display_tank){
+                display_tank.fish;
+            };
+        };
+
+        let user : T.UserInfo = switch(users_hash.get(Principal.fromText(userIdKey_buff.get(u_id)))){
+            case(null){
+                return #err(#NOUSERFOUND);
+            };
+            case(?user){
+                user;
+            };
+        };
+
+        let fish_metadata:[T.FishMetadata] = _getFishMetadata(user.fish);
+        return #ok({fish=user.fish;fishMD=fish_metadata; inDisplay=displayedFish;inStaking=stakedFish});
     };
 
     private func _getUserInfo(u_key : T.UserKey) : Result.Result<T.UserInfo, T.ErrorCode> {
@@ -470,99 +508,140 @@ actor class DRC721() {
 
     /*************************** Private Update Functions *********************************/
 
-    private func _addToDisplayTank(u_key: T.UserKey, fishId: T.FishId) : Result.Result<Text, T.ErrorCode>{
+    private func _toggleInDisplayTank(u_key: T.UserKey, fishId: T.FishId) : Result.Result<Bool, T.ErrorCode>{
         if(not _isOwner(u_key, fishId)){
             return #err(#NOTAUTHORIZED);
         };
 
-        switch(users_hash.get(u_key)){
+        let user = switch(users_hash.get(u_key)){
             case (null){
                 return #err(#NOUSERFOUND);
             };
             case (?user){
-                // Remove from storage tank
-                let new_storage_fish = Array.filter(storage_tank_buff.get(user.id).fish, func(id:T.FishId):Bool{ return id != fishId});
-                let new_storage_tank : T.StorageTank = {
-                    fish = new_storage_fish;
-                };
-                storage_tank_buff.put(user.id, new_storage_tank);
+                user;
+            };
+        };
 
-                // Add to display tank if not already in there
-                let cur_display_tank = display_tank_buff.get(user.id);
-                let cur_display_fish = cur_display_tank.fish;
-                switch(Array.find(cur_display_fish, func(id: T.FishId):Bool{ id == fishId; })){
-                    case (null){
-                        let new_display_fish : Buffer.Buffer<T.FishId> = Buffer.Buffer(cur_display_fish.size() + 1);
-                        for (x in cur_display_fish.vals()) {
-                            new_display_fish.add(x);
-                        };
-                        new_display_fish.add(fishId);
-
-                        let new_display_tank : T.DisplayTank = {
-                            acc_left = cur_display_tank.acc_left;
-                            acc_right = cur_display_tank.acc_right;
-                            color_bg = cur_display_tank.color_bg;
-                            color_bottom = cur_display_tank.color_bottom;
-                            effect = cur_display_tank.effect;
-                            fish = new_display_fish.toArray();
-                        };
-
-                        display_tank_buff.put(user.id, new_display_tank);
-                        return #ok("Added");
-                    };
-                    case(_){
-                        return #ok("Already added");
-                    };
-                };
+        switch(Array.find(display_tank_buff.get(user.id).fish, func(id: T.FishId):Bool{ id == fishId; })){
+            case(null){
+                _removeFromStakingTank(user.id, fishId);
+                _addToDisplayTank(user.id, fishId);
+                return #ok(true);
+            };
+            case(_){
+                _removeFromDisplayTank(user.id, fishId);
+                return #ok(false);
             };
         };
     };
 
-    private func _addToStorageTank(u_key: T.UserKey, fishId: T.FishId) : Result.Result<Text, T.ErrorCode>{
+    private func _toggleInStakingTank(u_key: T.UserKey, fishId: T.FishId) : Result.Result<Bool, T.ErrorCode>{
+        return #err (#NOTYETIMPLEMENTED);
+        
         if(not _isOwner(u_key, fishId)){
             return #err(#NOTAUTHORIZED);
         };
 
-        switch(users_hash.get(u_key)){
+        let user = switch(users_hash.get(u_key)){
             case (null){
                 return #err(#NOUSERFOUND);
             };
             case (?user){
-                // Remove from display tank
-                let cur_display_tank = display_tank_buff.get(user.id);
-                let new_display_fish = Array.filter(cur_display_tank.fish, func(id:T.FishId):Bool{ return id != fishId});
+                user;
+            };
+        };
+        
+        switch(Array.find(staking_tank_buff.get(user.id).fish, func(id: T.FishId):Bool{ id == fishId; })){
+            case(null){
+                _removeFromDisplayTank(user.id, fishId);
+                _addToStakingTank(user.id, fishId);
+                return #ok(true);
+            };
+            case(_){
+                _removeFromStakingTank(user.id, fishId);
+                return #ok(false);
+            };
+        };
+    };
+    
+    private func _removeFromDisplayTank(u_id: T.UserId, fishId: T.FishId) : () {
+        let cur_display_tank = display_tank_buff.get(u_id);
+        let new_display_fish = Array.filter(cur_display_tank.fish, func(id:T.FishId):Bool{ return id != fishId});
+        let new_display_tank : T.DisplayTank = {
+            acc_left = cur_display_tank.acc_left;
+            acc_right = cur_display_tank.acc_right;
+            color_bg = cur_display_tank.color_bg;
+            color_bottom = cur_display_tank.color_bottom;
+            effect = cur_display_tank.effect;
+            fish = new_display_fish;
+        };
+        display_tank_buff.put(u_id, new_display_tank);
+    };
+
+    private func _addToDisplayTank(u_id: T.UserId, fishId: T.FishId) {
+        let cur_display_tank = display_tank_buff.get(u_id);
+        let cur_display_fish = cur_display_tank.fish;
+        switch(Array.find(cur_display_fish, func(id: T.FishId):Bool{ id == fishId; })){
+            case (null){
+                let new_display_fish : Buffer.Buffer<T.FishId> = Buffer.Buffer(cur_display_fish.size() + 1);
+                for (x in cur_display_fish.vals()) {
+                    new_display_fish.add(x);
+                };
+                new_display_fish.add(fishId);
+
                 let new_display_tank : T.DisplayTank = {
                     acc_left = cur_display_tank.acc_left;
                     acc_right = cur_display_tank.acc_right;
                     color_bg = cur_display_tank.color_bg;
                     color_bottom = cur_display_tank.color_bottom;
                     effect = cur_display_tank.effect;
-                    fish = new_display_fish;
+                    fish = new_display_fish.toArray();
                 };
-                display_tank_buff.put(user.id, new_display_tank);
 
-                // Add to storage tank if not already in there
-                let cur_storage_tank = storage_tank_buff.get(user.id);
-                let cur_storage_fish = cur_storage_tank.fish;
-                switch(Array.find(cur_storage_fish, func(id: T.FishId):Bool{ id == fishId; })){
-                    case (null){
-                        let new_storage_fish : Buffer.Buffer<T.FishId> = Buffer.Buffer(cur_storage_fish.size() + 1);
-                        for (x in cur_storage_fish.vals()) {
-                            new_storage_fish.add(x);
-                        };
-                        new_storage_fish.add(fishId);
+                display_tank_buff.put(u_id, new_display_tank);
+            };
+            case(_){
+            };
+        };
+    };
 
-                        let new_storage_tank : T.StorageTank = {
-                            fish = new_storage_fish.toArray();
-                        };
+    private func _removeFromStakingTank(u_id: T.UserId, fishId: T.FishId) : () {
+        let cur_staking_tank = staking_tank_buff.get(u_id);
+        let new_staking_fish = Array.filter(cur_staking_tank.fish, func(id:T.FishId):Bool{ return id != fishId});
+        let new_staking_tank : T.StakingTank = {
+            acc_left = cur_staking_tank.acc_left;
+            acc_right = cur_staking_tank.acc_right;
+            color_bg = cur_staking_tank.color_bg;
+            color_bottom = cur_staking_tank.color_bottom;
+            effect = cur_staking_tank.effect;
+            fish = new_staking_fish;
+        };
+        staking_tank_buff.put(u_id, new_staking_tank);
+    };
 
-                        storage_tank_buff.put(user.id, new_storage_tank);
-                        return #ok("Added");
-                    };
-                    case(_){
-                        return #ok("Already added");
-                    };
+    private func _addToStakingTank(u_id: T.UserId, fishId: T.FishId) {
+        let cur_staking_tank = staking_tank_buff.get(u_id);
+        let cur_staking_fish = cur_staking_tank.fish;
+        switch(Array.find(cur_staking_fish, func(id: T.FishId):Bool{ id == fishId; })){
+            case (null){
+                let new_staking_fish : Buffer.Buffer<T.FishId> = Buffer.Buffer(cur_staking_fish.size() + 1);
+                for (x in cur_staking_fish.vals()) {
+                    new_staking_fish.add(x);
                 };
+                new_staking_fish.add(fishId);
+
+                let new_staking_tank : T.StakingTank = {
+                    acc_left = cur_staking_tank.acc_left;
+                    acc_right = cur_staking_tank.acc_right;
+                    color_bg = cur_staking_tank.color_bg;
+                    color_bottom = cur_staking_tank.color_bottom;
+                    effect = cur_staking_tank.effect;
+                    fish = new_staking_fish.toArray();
+                };
+
+                staking_tank_buff.put(u_id, new_staking_tank);
+            };
+            case(_){
             };
         };
     };
@@ -590,13 +669,19 @@ actor class DRC721() {
         };
         // tank_color = await _get_random_tankcolor();
 
-        let new_storage_tank: T.StorageTank = {
+        let new_staking_tank: T.StakingTank = {
             fish = [];
+            color_bottom = "";
+            color_bg = "";
+            acc_left = "";
+            acc_right = "";
+            effect = "";
         };
 
         users_hash.put(u_key, new_user);
+        userIdKey_buff.add(Principal.toText(u_key));
         display_tank_buff.add(new_display_tank);
-        storage_tank_buff.add(new_storage_tank);
+        staking_tank_buff.add(new_staking_tank);
 
         goldfishAirDrops.put(new_user.id, true);
         _log("Added goldfish record with true");
@@ -952,12 +1037,6 @@ actor class DRC721() {
         });
         let new_user_info : T.UserInfo = _editUserInfo(user, null, ?new_fish,  null, null, null, null, null);
         users_hash.put(u_key, new_user_info);
-
-        let result = _addToDisplayTank(u_key, id);
-        switch(result){
-            case(#err(error_code)){ return #err(error_code)};
-            case(_){};
-        };
         
         return #ok({fishId=id; metadata=fish});
     };
@@ -1153,8 +1232,9 @@ actor class DRC721() {
         return #ok({
             userEntries = export_users;
             fishEntries = fish_buff.toArray();
+            userIdKeyEntries = userIdKey_buff.toArray();
             displayTankEntries = display_tank_buff.toArray();
-            storageTankEntries = storage_tank_buff.toArray();
+            stakingTankEntries = staking_tank_buff.toArray();
             goldfishAirDropEntries = Iter.toArray(goldfishAirDrops.entries());
             adoptableFishEntries = Iter.toArray(adoptable_fish_hash.entries());
             donateKey = export_donate_key;
@@ -1175,10 +1255,12 @@ actor class DRC721() {
 
         fish_buff.clear();
         for (fish in backup.fishEntries.vals()) { fish_buff.add(fish); };
+        userIdKey_buff.clear();
+        for (idkey in backup.userIdKeyEntries.vals()) { userIdKey_buff.add(idkey); };
         display_tank_buff.clear();
         for (tank in backup.displayTankEntries.vals()) { display_tank_buff.add(tank); };
-        storage_tank_buff.clear();
-        for (tank in backup.storageTankEntries.vals()) { storage_tank_buff.add(tank); };
+        staking_tank_buff.clear();
+        for (tank in backup.stakingTankEntries.vals()) { staking_tank_buff.add(tank); };
 
         adminsEntries := backup.adminsEntries;
         switch(backup.donateKey){
@@ -1193,8 +1275,9 @@ actor class DRC721() {
 
     system func preupgrade() {
         fishEntries := fish_buff.toArray();
+        userIdKeyEntries := userIdKey_buff.toArray();
         displayTankEntries := display_tank_buff.toArray();
-        storageTankEntries := storage_tank_buff.toArray();
+        stakingTankEntries := staking_tank_buff.toArray();
         userEntries := Iter.toArray(users_hash.entries());
         goldfishAirDropEntries := Iter.toArray(goldfishAirDrops.entries());
         adoptableFishEntries := Iter.toArray(adoptable_fish_hash.entries());
@@ -1206,15 +1289,20 @@ actor class DRC721() {
         };
         fishEntries := [];
 
+        for (idkey in userIdKeyEntries.vals()) {
+            userIdKey_buff.add(idkey);
+        };
+        userIdKeyEntries := [];
+
         for (disp in displayTankEntries.vals()) {
             display_tank_buff.add(disp);
         };
         displayTankEntries := [];
 
-        for (stor in storageTankEntries.vals()) {
-            storage_tank_buff.add(stor);
+        for (stor in stakingTankEntries.vals()) {
+            staking_tank_buff.add(stor);
         };
-        storageTankEntries := [];
+        stakingTankEntries := [];
         
         userEntries := [];
         goldfishAirDropEntries := [];
