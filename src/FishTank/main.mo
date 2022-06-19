@@ -124,22 +124,21 @@ actor class DRC721() {
         return await _adoptInit(msg.caller);
     };
 */
-/*
-    public shared(msg) func donate(fishId:T.FishId) : async Result.Result<{fish_acc: Text},T.ErrorCode>{
+
+    public shared(msg) func donateFish(fishId:T.FishId) : async Result.Result<{fish_acc: Text},T.ErrorCode>{
         if(Principal.isAnonymous(msg.caller)) {
             return #err(#LOGINREQUIRED);
         };
 
-        return await _donate(msg.caller, fishId);
+        return await _donateFish(msg.caller, fishId);
     };
-*/
 
     public shared (msg) func createNewUser() : async Result.Result<T.LoggedInUserDetails,T.ErrorCode>{
         if(Principal.isAnonymous(msg.caller)) {
             return #err(#LOGINREQUIRED);
         };
 
-        var new_user = _createNewUser(msg.caller);
+        var new_user = await _createNewUser(msg.caller);
         return _login(msg.caller);
     };
 
@@ -751,22 +750,76 @@ actor class DRC721() {
         };
     };
 
-    private func _toggleFavorite(u_key: T.UserKey, fish_id:T.FishId) : Result.Result<Bool,T.ErrorCode> {
-        switch(fish_buff.getOpt(fish_id)){
+    private func _donateFish(u_key: T.UserKey, fish_id:T.FishId) : async Result.Result<{fish_acc: Text}, T.ErrorCode> {
+        let fish : T.FishMetadata = switch(fish_buff.getOpt(fish_id)){
             case(null){
                 return #err(#NOFISHFOUND);
             };
             case(?fish){
-                if(not _isOwner(u_key, fish_id)){
-                    return #err(#NOTAUTHORIZED);
-                };
-
-                var new_fish = _editFish(fish, ?(not fish.favorite), null, null, null, null, null);
-                fish_buff.put(fish_id, new_fish);
-
-                return #ok(new_fish.favorite);
+                fish;
             };
         };
+        
+        if(not _isOwner(u_key, fish_id)){
+            return #err(#NOTAUTHORIZED);
+        };
+
+        if(fish.favorite == true) {
+            return #err(#FISHISFAVORITED);
+        };
+
+        let user = switch(users_hash.get(u_key)){case(null){return #err(#NOUSERFOUND)};case(?u){u};};
+
+        // Remove from Display tank if there
+        _removeFromDisplayTank(user.id, fish_id);
+
+        // Remove fish from user
+        let new_fishIds = Array.filter(user.fish, func(id:T.FishId):Bool{ return id != fish_id});
+        let new_user_info : T.UserInfo = _editUserInfo(user, null, ?new_fishIds,  null, null, null, null, null);
+        users_hash.put(u_key, new_user_info);
+
+        // Update fish history
+        let new_transfer_event : T.TransferEvent = {
+            time=Int.abs(Time.now());
+            from=?fish.owner_history[fish.owner_history.size()-1].to;
+            to="adoption";
+        };
+
+        let new_owner_history = Array.tabulate(fish.owner_history.size() + 1, func (index:Nat): T.TransferEvent{
+            if(index != fish.owner_history.size()){
+                fish.owner_history[index];
+            } else {
+                new_transfer_event;
+            };
+        });
+        var new_fish = _editFish(fish, null, ?(fish.level + 1), null, ?new_owner_history, null, null);
+        fish_buff.put(fish_id, new_fish);
+
+        // transfer fish to adoptable fish buffer
+        adoptable_fish_hash.put(fish_id,0);
+
+        // transfer random accessory to user's collection of accessories
+        return #ok({fish_acc=""});
+    };
+
+    private func _toggleFavorite(u_key: T.UserKey, fish_id:T.FishId) : Result.Result<Bool,T.ErrorCode> {
+        let fish = switch(fish_buff.getOpt(fish_id)){
+            case(null){
+                return #err(#NOFISHFOUND);
+            };
+            case(?fish){
+                fish;
+            };
+        };
+
+        if(not _isOwner(u_key, fish_id)){
+            return #err(#NOTAUTHORIZED);
+        };
+
+        var new_fish = _editFish(fish, ?(not fish.favorite), null, null, null, null, null);
+        fish_buff.put(fish_id, new_fish);
+
+        return #ok(new_fish.favorite);
     };
 
     private func _editFish(existing: T.FishMetadata, favorite:?Bool, level:?Nat, name:?Text, owner_history:?[T.TransferEvent], 

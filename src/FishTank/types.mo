@@ -97,5 +97,6 @@ module {
         #NOTAUTHORIZED;
         #NOTYETIMPLEMENTED;
         #INVALIDNAME;
+        #FISHISFAVORITED;
     };
-}
+};

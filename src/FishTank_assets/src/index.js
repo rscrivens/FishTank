@@ -59,7 +59,6 @@ document.getElementById("exportbackupbtn").addEventListener("click", exportBacku
 document.getElementById("importbackupbtn").addEventListener("click", importBackup);
 
 const tradegfbtn = document.getElementById("tradegoldfish");
-const donatebtn = document.getElementById("donate");
 const mintbtn = document.getElementById("mint");
 const nextrandbtn = document.getElementById("nextrandom");
 
@@ -267,29 +266,33 @@ async function toggleDisplayTank(e){
   const actor = await iiAuth.getActor();
   var results = await actor.toggleInDisplayTank(fishId);
   if(results.ok !== undefined){
-    if(results.ok === true){
-      // Add to Display
-      userDisplayTank.fish.push(fishId);
-      var arrIndex = userStorageTank.fish.indexOf(fishId);
-      userDisplayFish.push(userStorageTank.fishMD[arrIndex]);
-      loadFish(fishId, userStorageTank.fishMD[arrIndex].properties);
-      // Remove from staking in future update
-    } else {
-      // Remove from Display
-      let fishIndex = userDisplayTank.fish.indexOf(fishId);
-      userDisplayTank.fish.splice(fishIndex, 1);
-      userDisplayFish.splice(fishIndex, 1);
-      removeFishFromTank(fishId);
-    }
-
-    tankOnDisplay = userDisplayTank;
-    fishOnDisplay = userDisplayFish;
+    addRemoveFromTankOnDisplay(results.ok, fishId);
   } else {
     console.log("failed: " + results.err);
     e.target.checked = !e.target.checked;
   }
 
   e.target.disabled = false;
+}
+
+function addRemoveFromTankOnDisplay(addToTank, fishId){
+  if(addToTank === true){
+    // Add to Display
+    userDisplayTank.fish.push(fishId);
+    var arrIndex = userStorageTank.fish.indexOf(fishId);
+    userDisplayFish.push(userStorageTank.fishMD[arrIndex]);
+    loadFish(fishId, userStorageTank.fishMD[arrIndex].properties);
+    // Remove from staking in future update
+  } else {
+    // Remove from Display
+    let fishIndex = userDisplayTank.fish.indexOf(fishId);
+    userDisplayTank.fish.splice(fishIndex, 1);
+    userDisplayFish.splice(fishIndex, 1);
+    removeFishFromTank(fishId);
+  }
+
+  tankOnDisplay = userDisplayTank;
+  fishOnDisplay = userDisplayFish;
 }
 
 async function login() {
@@ -409,7 +412,21 @@ async function tradeGfClick(e) {
 }
 
 async function donateClick(e) {
-  console.log("donate clicked on fish: " + BigInt(e.target.parentElement.id.split("_")[1]));
+  let fishId = e.target.parentElement.id.split("_")[1];
+  let actor = await iiAuth.getActor();
+  let result = await actor.donateFish(BigInt(fishId));
+  if(result.ok){
+    if(document.getElementById("displayed_" + fishId).firstChild.checked){
+      addRemoveFromTankOnDisplay(false, fishId);
+    }
+    var fishrow = document.getElementById("id_" + fishId).parentElement;
+    fishrow.parentElement.removeChild(fishrow);
+    var fishIndex = userStorageTank.fish.indexOf(fishId);
+    userStorageTank.fish.splice(fishIndex, 1);
+    userStorageTank.fishMD.splice(fishIndex, 1);
+  }else{
+    console.log("error" + result.err);
+  }
 }
 
 async function favoriteClick(e) {
@@ -525,7 +542,7 @@ function selectFish(fishsvg) {
 
   if (fishsvg.classList.contains("selectedfish")) {
     fishsvg.classList.remove("selectedfish");
-    document.getElementById("fishinfo").classList.add("hidden");
+    document.getElementById("fishinfosection").classList.add("hidden");
     //triggerDelayedRedraw();
   } else {
     var selectedfish = tanksvg.getElementsByClassName("selectedfish");
@@ -541,12 +558,9 @@ function selectFish(fishsvg) {
     // Determine which buttons should be shown
     if (fishsvg.id === "goldfish") {
       tradegfbtn.classList.remove("hidden");
-      donatebtn.classList.add("hidden");
     } else {
       tradegfbtn.classList.add("hidden");
-      donatebtn.classList.remove("hidden");
     }
-    mintbtn.classList.add("hidden");
 
     // Show the fish info
     var fishid = fishsvg.id;
