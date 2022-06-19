@@ -32,7 +32,7 @@ module {
         name                : Text;
         owner_history       : [TransferEvent];
         properties          : FishProps;
-        transferrable       : Bool;
+        soul_bound          : Bool;
     };
 
     public type TransferEvent = {
@@ -98,5 +98,6 @@ module {
         #NOTYETIMPLEMENTED;
         #INVALIDNAME;
         #FISHISFAVORITED;
+        #FISHISSOULBOUND;
     };
 };

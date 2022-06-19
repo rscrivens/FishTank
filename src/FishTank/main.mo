@@ -155,7 +155,7 @@ actor class DRC721() {
 
         // Need to implement payment before minting
 
-        return await _mint(msg.caller, true);
+        return await _mint(msg.caller, false);
     };
 
     public shared(msg) func setFishName(fishId:T.FishId, name:Text) : async Result.Result<Text,T.ErrorCode>{
@@ -292,6 +292,7 @@ actor class DRC721() {
                 fish_buff.clear();
                 display_tank_buff.clear();
                 staking_tank_buff.clear();
+                userIdKey_buff.clear();
 
                 return #ok();
             };
@@ -768,6 +769,10 @@ actor class DRC721() {
             return #err(#FISHISFAVORITED);
         };
 
+        if(fish.soul_bound == true) {
+            return #err(#FISHISSOULBOUND);
+        };
+
         let user = switch(users_hash.get(u_key)){case(null){return #err(#NOUSERFOUND)};case(?u){u};};
 
         // Remove from Display tank if there
@@ -823,22 +828,14 @@ actor class DRC721() {
     };
 
     private func _editFish(existing: T.FishMetadata, favorite:?Bool, level:?Nat, name:?Text, owner_history:?[T.TransferEvent], 
-    properties:?T.FishProps, transferrable:?Bool) : T.FishMetadata {
-        /*
-        var new_favorite : Bool = switch(favorite){ case(null){existing.favorite}; case(?n){ n };};
-        var new_level : Nat = switch(level){ case(null){ existing.level }; case(?n){ n };};
-        var new_name : Text =  switch(name){ case(null){ existing.name }; case(?n){ n };};
-        var new_owner_history : [T.TransferEvent] = switch(owner_history){ case(null){ existing.owner_history }; case(?n){ n };};
-        var new_properties : T.FishProps = switch(properties){ case(null){ existing.properties }; case(?n){ n };};
-        var new_transferrable : Bool = switch(transferrable){ case(null){existing.transferrable}; case(?n){ n };};
-*/
+    properties:?T.FishProps, soul_bound:?Bool) : T.FishMetadata {
         let new_fish : T.FishMetadata =  {
             favorite = switch(favorite){ case(null){existing.favorite}; case(?n){ n };};
             level = switch(level){ case(null){ existing.level }; case(?n){ n };};
             name = switch(name){ case(null){ existing.name }; case(?n){ n };};
             owner_history = switch(owner_history){ case(null){ existing.owner_history }; case(?n){ n };};
             properties = switch(properties){ case(null){ existing.properties }; case(?n){ n };};
-            transferrable = switch(transferrable){ case(null){existing.transferrable}; case(?n){ n };};
+            soul_bound = switch(soul_bound){ case(null){existing.soul_bound}; case(?n){ n };};
         };
 
         return new_fish;
@@ -929,7 +926,7 @@ actor class DRC721() {
 
                 // claim the fish
                 goldfishAirDrops.put(u_id,false);
-                return await _mint(p, false);
+                return await _mint(p, true);
             };
         };
     };
@@ -1052,7 +1049,7 @@ actor class DRC721() {
     };    
     */
 
-    private func _mint(u_key : T.UserKey, transferrable : Bool) : async Result.Result<{fishId:T.FishId; metadata:T.FishMetadata}, T.ErrorCode> {
+    private func _mint(u_key : T.UserKey, soul_bound : Bool) : async Result.Result<{fishId:T.FishId; metadata:T.FishMetadata}, T.ErrorCode> {
         let id = fish_buff.size();
         let fish: T.FishMetadata = {
             favorite = false;
@@ -1073,7 +1070,7 @@ actor class DRC721() {
                 speed = await _get_random_speed();
                 size = await _get_random_size();
             };
-            transferrable = transferrable;
+            soul_bound = soul_bound;
         };
 
         // need to add metadata to fish

@@ -25,7 +25,7 @@ var goldfishOnDisplay;
 
 var storageCols = [
   { name: "favorite", label: "★" }, { name: "id", label: "Id" }, { name: "name", label: "Name" },
-  { name: "level", label: "Level" }, { name: "transferrable", label: "Transferrable" }, { name: "eye_color", label: "Eye Color" },
+  { name: "level", label: "Level" }, { name: "eye_color", label: "Eye Color" },
   { name: "color_1", label: "Color 1" }, { name: "color_2", label: "Color 2" }, { name: "color_3", label: "Color 3" },
   { name: "speed", label: "Speed" }, { name: "size", label: "Size" }, { name: "acc_hat", label: "Hat" },
   { name: "displayed", label: "Displayed" }, { name: "staked", label: "Staked" }, { name: "donate", label: "Donate!" }
@@ -246,16 +246,24 @@ async function loadStorageInfo() {
             break;
           case "donate":
             let donatebtn = document.createElement("button");
-            donatebtn.innerText = storageCols[rcindex].label;
-            donatebtn.title = "Donate fish with id " + fishId;
-            if (userStorageTank.fishMD[rindex].favorite === true) {
-              donatebtn.disabled = true;
-              donatebtn.title = "Unfavorite fish if you want to donate";
-            }
-            donatebtn.addEventListener("click", donateClick);
-            rowcell.appendChild(donatebtn);
+            if (userStorageTank.fishMD.soul_bound == false) {
+              donatebtn.innerText = storageCols[rcindex].label;
+              donatebtn.title = "Donate fish with id " + fishId;
+              if (userStorageTank.fishMD[rindex].favorite === true) {
+                donatebtn.disabled = true;
+                donatebtn.title = "Unfavorite fish if you want to donate";
+              }
+              donatebtn.addEventListener("click", donateClick);
+              rowcell.dataset.sortval = donatebtn.disabled;
 
-            rowcell.dataset.sortval = donatebtn.disabled;
+            } else {
+              donatebtn.innerText = "Soul Bound";
+              donatebtn.title = "Fish is Soul Bound";
+              donatebtn.disabled = true;
+              rowcell.dataset.sortval = "soulbound";
+            }
+
+            rowcell.appendChild(donatebtn);
             break;
           default:
             let label = userStorageTank.fishMD[rindex][prop];
@@ -306,11 +314,11 @@ function sortStorage(e) {
     let bSortVal = b.children[colIndex].dataset.sortval;
 
     let numVal = Number(aSortVal);
-    if(!isNaN(numVal)){
+    if (!isNaN(numVal)) {
       aSortVal = numVal;
     }
     numVal = Number(bSortVal);
-    if(!isNaN(numVal)){
+    if (!isNaN(numVal)) {
       bSortVal = numVal;
     }
 
@@ -565,11 +573,13 @@ function updateFavoriteButton(btn, state) {
 
 function updateFavoriteRelatedButtons(fishId, state) {
   var donateBtn = document.getElementById("donate_" + fishId).firstChild;
-  donateBtn.disabled = state;
-  if (state === true) {
-    donateBtn.title = "Unfavorite fish if you want to donate";
-  } else {
-    donateBtn.title = "Donate fish with id " + fishId;
+  if (donateBtn.parentElement.dataset.sortval !== "soulbound") {
+    donateBtn.disabled = state;
+    if (state === true) {
+      donateBtn.title = "Unfavorite fish if you want to donate";
+    } else {
+      donateBtn.title = "Donate fish with id " + fishId;
+    }
   }
 }
 
@@ -663,7 +673,7 @@ function selectFish(fishsvg) {
       fishinfosection.appendChild(createFishInfoEle("id", "id: ", fishid, ""));
       fishinfosection.appendChild(createFishInfoEle("date", "date: ", formatDate(fishdata.owner_history[0].time), ""));
       fishinfosection.appendChild(createFishInfoEle("name", "name: ", fishdata.name, ""));
-      fishinfosection.appendChild(createFishInfoEle("tradable", "tradable: ", fishdata.transferrable, ""));
+      fishinfosection.appendChild(createFishInfoEle("soul_bound", "Soul Bound: ", fishdata.soul_bound, ""));
       fishinfosection.appendChild(createFishInfoEle("level", "level: ", fishdata.level, ""));
       fishinfosection.appendChild(createFishInfoEle("favorite", "favorite: ", fishdata.favorite, ""));
 
