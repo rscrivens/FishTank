@@ -237,10 +237,10 @@ async function loadStorageInfo() {
           case "donate":
             let donatebtn = document.createElement("button");
             donatebtn.innerText = storageCols[rcindex].label;
-            donateBtn.title = "Donate fish with id " + fishId;
+            donatebtn.title = "Donate fish with id " + fishId;
             if(userStorageTank.fishMD[rindex].favorite === true){
               donatebtn.disabled = true;
-              donateBtn.title = "Unfavorite fish if you want to donate";
+              donatebtn.title = "Unfavorite fish if you want to donate";
             }
             donatebtn.addEventListener("click", donateClick);
             rowcell.appendChild(donatebtn);
@@ -260,12 +260,10 @@ async function loadStorageInfo() {
   }
 }
 
-
-
 async function toggleDisplayTank(e){
   e.target.disabled = true;
 
-  var fishId = BigInt(e.target.id.split("_")[1]);
+  var fishId = BigInt(e.target.parentElement.id.split("_")[1]);
   const actor = await iiAuth.getActor();
   var results = await actor.toggleInDisplayTank(fishId);
   if(results.ok !== undefined){
@@ -411,12 +409,12 @@ async function tradeGfClick(e) {
 }
 
 async function donateClick(e) {
-  console.log("donate clicked on fish: " + BigInt(e.target.parentElement.parentElement.dataset.fishid));
+  console.log("donate clicked on fish: " + BigInt(e.target.parentElement.id.split("_")[1]));
 }
 
 async function favoriteClick(e) {
   let origstate = updateFavoriteButton(e.target, undefined);
-  let fishId = BigInt(e.target.parentElement.parentElement.dataset.fishid);
+  let fishId = BigInt(e.target.parentElement.id.split("_")[1]);
 
   let actor = await iiAuth.getActor();
   let result = await actor.toggleFavorite(fishId);
