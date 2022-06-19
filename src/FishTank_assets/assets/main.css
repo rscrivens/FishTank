@@ -190,6 +190,7 @@ button.hidden {
 
 .storageheaderrow label {
   border-bottom: black solid thin;
+  cursor: pointer;
 }
 
 .storagecell button {
@@ -199,4 +200,12 @@ button.hidden {
 .storagecell input[type="checkbox"]{
   width: 1.5em;
   height: 1.5em;
+}
+
+.sortasc::after {
+  content: " \25B2 ";
+}
+
+.sortdsc::after {
+  content: " \25BC ";
 }

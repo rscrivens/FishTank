@@ -17,7 +17,6 @@ var userDisplayFish = [];
 var userHasGoldfish = false;
 var userStorageTank;
 
-var storageSortCol = "id";
 var storageSortAsc = true;
 
 var tankOnDisplay;
@@ -29,7 +28,7 @@ var storageCols = [
   { name: "level", label: "Level" }, { name: "transferrable", label: "Transferrable" }, { name: "eye_color", label: "Eye Color" },
   { name: "color_1", label: "Color 1" }, { name: "color_2", label: "Color 2" }, { name: "color_3", label: "Color 3" },
   { name: "speed", label: "Speed" }, { name: "size", label: "Size" }, { name: "acc_hat", label: "Hat" },
-  { name: "displayed", label: "Displayed" }, { name: "staked", label: "Staked" }, {name: "donate", label: "Donate!"}
+  { name: "displayed", label: "Displayed" }, { name: "staked", label: "Staked" }, { name: "donate", label: "Donate!" }
 ];
 
 const hiddenClass = "hidden";
@@ -155,6 +154,7 @@ async function loadStorageInfo() {
       var headcell = document.createElement("label");
       headcell.innerText = storageCols[hcindex].label;
       headcell.classList.add("storagecell");
+      headcell.dataset.colname = storageCols[hcindex].name;
       switch (storageCols[hcindex].name) {
         case "favorite":
           headcell.classList.add("togglefavorite");
@@ -168,6 +168,7 @@ async function loadStorageInfo() {
           headcell.style.textAlign = "center";
           break;
       }
+      headcell.addEventListener("click", sortStorage);
       headerrow.appendChild(headcell);
     }
     tablesection.appendChild(headerrow);
@@ -189,6 +190,8 @@ async function loadStorageInfo() {
           case "id":
             let id = fishId;
             rowcell.innerText = id;
+
+            rowcell.dataset.sortval = id;
             break;
           case "favorite":
             let btn = document.createElement("button");
@@ -196,27 +199,33 @@ async function loadStorageInfo() {
             btn.addEventListener("click", favoriteClick);
             updateFavoriteButton(btn, userStorageTank.fishMD[rindex].favorite);
             rowcell.appendChild(btn);
+
+            rowcell.dataset.sortval = userStorageTank.fishMD[rindex].favorite;
             break;
           case "displayed":
             let dCheckbox = document.createElement("input");
             dCheckbox.type = "checkbox";
-            if(userStorageTank.inDisplay.indexOf(fishId) !== -1){
+            if (userStorageTank.inDisplay.indexOf(fishId) !== -1) {
               dCheckbox.checked = true;
             }
             dCheckbox.addEventListener("click", toggleDisplayTank);
             rowcell.appendChild(dCheckbox);
             rowcell.style.textAlign = "center";
+
+            rowcell.dataset.sortval = dCheckbox.checked;
             break;
           case "staked":
             let sCheckbox = document.createElement("input");
             sCheckbox.type = "checkbox";
-            if(userStorageTank.inStaking.indexOf(fishId) !== -1){
+            if (userStorageTank.inStaking.indexOf(fishId) !== -1) {
               sCheckbox.checked = true;
             }
             // sCheckbox.addEventListener("click", toggleStakingTank);
             sCheckbox.disabled = true;
             rowcell.appendChild(sCheckbox);
             rowcell.style.textAlign = "center";
+
+            rowcell.dataset.sortval = sCheckbox.checked;
             break;
           case "color_1":
           case "color_2":
@@ -232,17 +241,21 @@ async function loadStorageInfo() {
             rowcell.style.textAlign = "center";
 
             rowcell.appendChild(box);
+
+            rowcell.dataset.sortval = color;
             break;
           case "donate":
             let donatebtn = document.createElement("button");
             donatebtn.innerText = storageCols[rcindex].label;
             donatebtn.title = "Donate fish with id " + fishId;
-            if(userStorageTank.fishMD[rindex].favorite === true){
+            if (userStorageTank.fishMD[rindex].favorite === true) {
               donatebtn.disabled = true;
               donatebtn.title = "Unfavorite fish if you want to donate";
             }
             donatebtn.addEventListener("click", donateClick);
             rowcell.appendChild(donatebtn);
+
+            rowcell.dataset.sortval = donatebtn.disabled;
             break;
           default:
             let label = userStorageTank.fishMD[rindex][prop];
@@ -250,6 +263,8 @@ async function loadStorageInfo() {
               label = userStorageTank.fishMD[rindex].properties[prop];
             }
             rowcell.innerText = label;
+
+            rowcell.dataset.sortval = label;
         }
 
         row.appendChild(rowcell);
@@ -259,24 +274,95 @@ async function loadStorageInfo() {
   }
 }
 
-async function toggleDisplayTank(e){
+function sortStorage(e) {
+  if (e.target.classList.contains("sortdsc") === true) {
+    storageSortAsc = true;
+    e.target.classList.replace("sortdsc", "sortasc");
+  } else if (e.target.classList.contains("sortasc") === true) {
+    storageSortAsc = false;
+    e.target.classList.replace("sortasc", "sortdsc");
+  } else {
+    // remove class from previous col
+    var prevsort = document.getElementsByClassName("sortdsc");
+    while (prevsort.length > 0) { prevsort[0].classList.remove("sortdsc"); }
+
+    prevsort = document.getElementsByClassName("sortasc");
+    while (prevsort.length > 0) { prevsort[0].classList.remove("sortasc"); }
+
+    // add new sort col
+    storageSortAsc = true;
+    e.target.classList.add("sortasc");
+  }
+
+  var colName = e.target.dataset.colname;
+  var colIndex = storageCols.findIndex((value) => {
+    return value.name === colName;
+  });
+
+  // perform sort of html elements
+  var rows = Array.from(document.getElementsByClassName("storagerow"));
+  var sortedRows = rows.sort((a, b) => {
+    let aSortVal = a.children[colIndex].dataset.sortval;
+    let bSortVal = b.children[colIndex].dataset.sortval;
+
+    let numVal = Number(aSortVal);
+    if(!isNaN(numVal)){
+      aSortVal = numVal;
+    }
+    numVal = Number(bSortVal);
+    if(!isNaN(numVal)){
+      bSortVal = numVal;
+    }
+
+    if (storageSortAsc === true) {
+      if (aSortVal > bSortVal) {
+        return 1;
+      } else if (aSortVal < bSortVal) {
+        return -1;
+      } else {
+        return 0;
+      }
+    } else {
+      if (aSortVal < bSortVal) {
+        return 1;
+      } else if (aSortVal > bSortVal) {
+        return -1;
+      } else {
+        return 0;
+      }
+    }
+  });
+
+  var tablesection = document.getElementById("storagetablesection")
+  for (var index = 0; index < rows.length; index++) {
+    tablesection.removeChild(rows[index]);
+  }
+
+  for (var index = 0; index < sortedRows.length; index++) {
+    tablesection.appendChild(sortedRows[index]);
+  }
+}
+
+async function toggleDisplayTank(e) {
   e.target.disabled = true;
 
   var fishId = BigInt(e.target.parentElement.id.split("_")[1]);
   const actor = await iiAuth.getActor();
   var results = await actor.toggleInDisplayTank(fishId);
-  if(results.ok !== undefined){
+  if (results.ok !== undefined) {
     addRemoveFromTankOnDisplay(results.ok, fishId);
   } else {
     console.log("failed: " + results.err);
     e.target.checked = !e.target.checked;
   }
 
+  e.target.parentElement.dataset.sortval = e.target.checked;
+
   e.target.disabled = false;
 }
 
-function addRemoveFromTankOnDisplay(addToTank, fishId){
-  if(addToTank === true){
+function addRemoveFromTankOnDisplay(addToTank, fishId) {
+  if (addToTank === true) {
     // Add to Display
     userDisplayTank.fish.push(fishId);
     var arrIndex = userStorageTank.fish.indexOf(fishId);
@@ -415,8 +501,8 @@ async function donateClick(e) {
   let fishId = e.target.parentElement.id.split("_")[1];
   let actor = await iiAuth.getActor();
   let result = await actor.donateFish(BigInt(fishId));
-  if(result.ok){
-    if(document.getElementById("displayed_" + fishId).firstChild.checked){
+  if (result.ok) {
+    if (document.getElementById("displayed_" + fishId).firstChild.checked) {
       addRemoveFromTankOnDisplay(false, fishId);
     }
     var fishrow = document.getElementById("id_" + fishId).parentElement;
@@ -424,7 +510,7 @@ async function donateClick(e) {
     var fishIndex = userStorageTank.fish.indexOf(fishId);
     userStorageTank.fish.splice(fishIndex, 1);
     userStorageTank.fishMD.splice(fishIndex, 1);
-  }else{
+  } else {
     console.log("error" + result.err);
   }
 }
@@ -440,6 +526,7 @@ async function favoriteClick(e) {
     updateFavoriteButton(e.target, result.ok);
     updateFavoriteInTank(fishId, result.ok);
     updateFavoriteRelatedButtons(fishId, result.ok);
+    e.target.parentElement.dataset.sortval = result.ok;
   } else {
     console.log("toggle favorite failed");
     updateFavoriteButton(e.target, origstate);
@@ -476,10 +563,10 @@ function updateFavoriteButton(btn, state) {
   }
 }
 
-function updateFavoriteRelatedButtons(fishId, state){
+function updateFavoriteRelatedButtons(fishId, state) {
   var donateBtn = document.getElementById("donate_" + fishId).firstChild;
   donateBtn.disabled = state;
-  if(state === true){
+  if (state === true) {
     donateBtn.title = "Unfavorite fish if you want to donate";
   } else {
     donateBtn.title = "Donate fish with id " + fishId;
@@ -542,7 +629,7 @@ function selectFish(fishsvg) {
 
   if (fishsvg.classList.contains("selectedfish")) {
     fishsvg.classList.remove("selectedfish");
-    document.getElementById("fishinfosection").classList.add("hidden");
+    document.getElementById("selectedfishsection").classList.add("hidden");
     //triggerDelayedRedraw();
   } else {
     var selectedfish = tanksvg.getElementsByClassName("selectedfish");
