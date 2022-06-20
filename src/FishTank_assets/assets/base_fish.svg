@@ -2,7 +2,7 @@
     <defs>
         <style>
             .base_fish_cls-1 {
-                fill: blue;
+                fill: eye_color;
             }
 
             .base_fish_cls-2 {

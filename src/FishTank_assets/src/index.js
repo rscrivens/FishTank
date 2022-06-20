@@ -25,8 +25,8 @@ var goldfishOnDisplay;
 
 var storageCols = [
   { name: "favorite", label: "★" }, { name: "id", label: "Id" }, { name: "name", label: "Name" },
-  { name: "level", label: "Level" }, { name: "eye_color", label: "Eye Color" },
-  { name: "color_1", label: "Color 1" }, { name: "color_2", label: "Color 2" }, { name: "color_3", label: "Color 3" },
+  { name: "level", label: "Level" }, { name: "eye_color", label: "Eyes" },
+  { name: "color_1", label: "Body" }, { name: "color_2", label: "Accent" }, { name: "color_3", label: "Fins" },
   { name: "speed", label: "Speed" }, { name: "size", label: "Size" }, { name: "acc_hat", label: "Hat" },
   { name: "displayed", label: "Displayed" }, { name: "staked", label: "Staked" }, { name: "donate", label: "Donate!" }
 ];
@@ -246,7 +246,7 @@ async function loadStorageInfo() {
             break;
           case "donate":
             let donatebtn = document.createElement("button");
-            if (userStorageTank.fishMD.soul_bound == false) {
+            if (userStorageTank.fishMD[rindex].soul_bound == false) {
               donatebtn.innerText = storageCols[rcindex].label;
               donatebtn.title = "Donate fish with id " + fishId;
               if (userStorageTank.fishMD[rindex].favorite === true) {
@@ -265,6 +265,20 @@ async function loadStorageInfo() {
 
             rowcell.appendChild(donatebtn);
             break;
+          case "speed":
+            let speed = userStorageTank.fishMD[rindex].properties[prop];
+            speed = convertSpeed(speed);
+            rowcell.innerText = speed.label;
+
+            rowcell.dataset.sortval = speed.label;
+            break;
+          case "size":
+            let size = userStorageTank.fishMD[rindex].properties[prop];
+            size = convertSize(size);
+            rowcell.innerText = size.label;
+
+            rowcell.dataset.sortval = size.label;
+            break;
           default:
             let label = userStorageTank.fishMD[rindex][prop];
             if (label === undefined) {
@@ -280,6 +294,32 @@ async function loadStorageInfo() {
       tablesection.appendChild(row);
     }
   }
+}
+
+function convertSpeed(speed){
+  var label = "Average";
+  var value = 1;
+  if(speed.SLOW === null){
+    label = "Slow";
+    value = 1.2;
+  }else if(speed.FAST === null){
+    label = "Fast";
+    value = .8;
+  }
+  return {label:label, value:value};
+}
+
+function convertSize(size){
+  var label = "Average";
+  var value = 1;
+  if(size.SMALL === null){
+    label = "Small";
+    value = .75;
+  }else if(size.LARGE === null){
+    label = "Large";
+    value = 1.25;
+  }
+  return {label:label, value:value};
 }
 
 function sortStorage(e) {
@@ -498,8 +538,7 @@ async function tradeGfClick(e) {
     console.log(claimResult);
     var tankobj = document.getElementById("tankobj").getSVGDocument();
     tankobj.getElementById("tank").removeChild(tankobj.getElementById("goldfish"));
-    loadFish(claimResult.ok)
-    updateMyBalance();
+    loadFish(claimResult.ok.fishId, claimResult.ok.metadata.properties);
   }
 
   tradegfbtn.disabled = false;
@@ -757,18 +796,22 @@ function loadFish(fishId, properties) {
   let fish = basefish.cloneNode(true);
 
   let animationDelay = Math.random() * 5;
-  let animationTime = (Math.random() * 15) + 30;
+  let animationTime = convertSpeed(properties.speed).value * 37.5;
   let y = 0;
   while (y < .1 || y > .9) {
     y = Math.random();
   }
   y = y * 1080;
 
+  let size = convertSize(properties.size);
+
   let fishPrefix = "fish_" + fishId;
   var innerhtml = fish.innerHTML;
+  innerhtml = innerhtml.replaceAll("fill: eye_color;", `fill: ${properties.eye_color};`);
   innerhtml = innerhtml.replaceAll("animation-duration: 30s;", `animation-duration: ${animationTime}s;`);
   innerhtml = innerhtml.replaceAll("animation-delay: 0s;", `animation-delay: ${animationDelay}s;`);
   innerhtml = innerhtml.replaceAll("translateY(1000000px)", `translateY(${y}px)`);
+  innerhtml = innerhtml.replaceAll("scale(.15)", `scale(${.15 * size.value})`);
   innerhtml = innerhtml.replaceAll("base_fish", fishPrefix);
   fish.innerHTML = innerhtml;
 
@@ -789,9 +832,9 @@ function loadFish(fishId, properties) {
   let fishBGRule = `#${fishPrefix} g:first-of-type rect{
           fill: transparent;
       }`;
-
+  
   let fishPartsRule = `#${fishPrefix} g {
-          transform: translateY(${y}px) translateX(-13%) scale(${.15});
+          transform: translateY(${y}px) translateX(-13%) scale(${.15 * size.value});
       }`;
 
   fishesCSS.insertRule(fishBGRule, 0);

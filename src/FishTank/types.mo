@@ -48,8 +48,20 @@ module {
         color_2             : Text;
         color_3             : Text;
         eye_color           : Text;
-        speed               : Nat;
-        size                : Nat;
+        speed               : FishSpeed;
+        size                : FishSize;
+    };
+
+    public type FishSpeed = {
+        #SLOW;
+        #AVERAGE;
+        #FAST;
+    };
+
+    public type FishSize = {
+        #SMALL;
+        #AVERAGE;
+        #LARGE;
     };
 
     public type BodyType = {

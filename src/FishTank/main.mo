@@ -23,7 +23,7 @@ actor class DRC721() {
     private stable let _name : Text = "Fish Tank";
     private stable let _symbol : Text = "FT";
     private stable var donateKey : ?Principal = null;
-    private stable var workaround : [(T.FishProps, T.TransferEvent, T.BodyType, T.UserId)] = [];
+    private stable var workaround : [(T.FishProps, T.FishSize, T.FishSpeed, T.TransferEvent, T.BodyType, T.UserId)] = [];
 
     private stable var fishEntries : [T.FishMetadata] = [];
     private stable var userEntries : [(T.UserKey, T.UserInfo)] = [];
@@ -1066,7 +1066,7 @@ actor class DRC721() {
                 color_1 = await _get_random_color1();
                 color_2 = await _get_random_color2();
                 color_3 = await _get_random_color3();
-                eye_color = "";
+                eye_color = await _get_random_eyecolor();
                 speed = await _get_random_speed();
                 size = await _get_random_size();
             };
@@ -1130,14 +1130,6 @@ actor class DRC721() {
         return (rand_return);
     };
 
-    private func _get_random_speed() : async Nat {
-        return (100);
-    };
-
-    private func _get_random_size() : async Nat {
-        return (100);
-    };
-
     private func _get_random_color1() : async Text {
         let i : Nat = await _smallrand(colors_for_1.size());
         return (colors_for_1[i]);
@@ -1153,9 +1145,24 @@ actor class DRC721() {
         return (colors_for_3[i]);
     };
 
+    private func _get_random_eyecolor() : async Text {
+        let i : Nat = await _smallrand(colors_for_eyes.size());
+        return (colors_for_eyes[i]);
+    };
+
     private func _get_random_tankcolor() : async Text {
         let i : Nat = await _smallrand(colors_for_tank.size());
         return (colors_for_tank[i]);
+    };
+
+    private func _get_random_speed() : async T.FishSpeed {
+        let i : Nat = await _smallrand(speed_for_fish.size());
+        return (speed_for_fish[i]);
+    };
+
+    private func _get_random_size() : async T.FishSize {
+        let i : Nat = await _smallrand(sizes_for_fish.size());
+        return (sizes_for_fish[i]);
     };
 
     private let colors_for_1 : [Text] = [
@@ -1239,6 +1246,16 @@ actor class DRC721() {
         "#9E1C5C"
     ];
 
+    private let colors_for_eyes : [Text] = [
+        "#e61919",
+        "#0dbd25",
+        "#0d48bd",
+        "#a80dbd",
+        "#000000",
+        "#c0c0c0",
+        "#E0AA3E"
+    ];
+
     private let colors_for_tank : [Text] = [
          /*pastels*/
         "#ABDEE6",
@@ -1264,6 +1281,22 @@ actor class DRC721() {
         "#00ACA5",
         "#187B30",
         "#9E1C5C"
+    ];
+
+    private let sizes_for_fish : [T.FishSize] = [
+        #SMALL,
+        #AVERAGE,
+        #AVERAGE,
+        #AVERAGE,
+        #LARGE
+    ];
+
+    private let speed_for_fish : [T.FishSpeed] = [
+        #SLOW,
+        #AVERAGE,
+        #AVERAGE,
+        #AVERAGE,
+        #FAST
     ];
 
     private func _exportBackup(): Result.Result<T.Backup, T.ErrorCode>{
