@@ -13,7 +13,7 @@
                 fill: url(#water3-gradient);
             }
 
-            .selectedfish g {
+            .selectedfish > g {
                 transform: none !important;
                 animation: none !important;
             }

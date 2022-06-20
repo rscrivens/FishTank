@@ -833,7 +833,7 @@ function loadFish(fishId, properties) {
           fill: transparent;
       }`;
   
-  let fishPartsRule = `#${fishPrefix} g {
+  let fishPartsRule = `#${fishPrefix} > g {
           transform: translateY(${y}px) translateX(-13%) scale(${.15 * size.value});
       }`;
 
