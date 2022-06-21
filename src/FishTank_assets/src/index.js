@@ -482,7 +482,101 @@ function sortStorage(e) {
 async function unlockHatClicked(e) {
   var fishId = BigInt(e.target.parentElement.id.split("_")[1]);
   console.log("trying to edit: " + fishId);
+  var content = document.getElementById("unlockhatcontent");
+  while (content.hasChildNodes()) {
+    content.removeChild(content.children[0]);
+  }
 
+  var title = document.createElement("p");
+  title.innerText = `Unlock Hats for Fish ${fishId}`;
+  content.appendChild(title);
+
+  var select = document.createElement("select");
+  select.id = "unlockselection";
+  var party_hats = 0;
+  var straw_hats = 0;
+  for (var i = 0; i < user.fish_hats.length; i++) {
+    if (user.fish_hats[i].PARTY === null) {
+      party_hats++;
+    } else if (user.fish_hats[i].STRAW === null) {
+      straw_hats++;
+    }
+  }
+
+  var party_is_locked = true;
+  var straw_is_locked = true;
+  var unlocked_hats = userStorageTank.fishMD[userStorageTank.fish.indexOf(fishId)].unlocked_hats;
+  for (var i = 0; i < unlocked_hats.length; i++) {
+    if (unlocked_hats[i].PARTY === null) {
+      party_is_locked = false;
+    } else if (unlocked_hats[i].STRAW === null) {
+      straw_is_locked = false;
+    }
+  }
+
+  if (party_is_locked == true && party_hats > 0) {
+    var opt = document.createElement("option");
+    opt.value = "party_hat";
+    opt.innerText = `Party Hat (${party_hats})`;
+    select.appendChild(opt);
+  }
+
+  if (straw_is_locked == true && straw_hats > 0) {
+    var opt = document.createElement("option");
+    opt.value = "straw_hat";
+    opt.innerText = `Straw Hat (${straw_hats})`;
+    select.appendChild(opt);
+  }
+
+  var button = document.createElement("button");
+  button.innerText = "Unlock!";
+  button.dataset.fishid = fishId;
+  button.addEventListener("click", unlockHat);
+
+  if(select.children.length == 0){
+    var opt = document.createElement("option");
+    opt.value = "";
+    opt.innerText = `None Available`;
+    select.appendChild(opt);
+    button.disabled = true;
+  }
+  content.appendChild(select);
+
+  content.appendChild(button);
+
+  var cancelbutton = document.createElement("button");
+  cancelbutton.innerText = "Cancel";
+  cancelbutton.addEventListener("click", (e)=> {
+    document.getElementById("unlockhatmodal").classList.remove("showmodal");
+  });
+  content.appendChild(cancelbutton);
+
+  var msg = document.createElement("p");
+  msg.innerText = "Donate fish to get rewarded with new hat unlocks";
+  content.appendChild(msg);
+
+  document.getElementById("unlockhatmodal").classList.add("showmodal");
+}
+
+async function unlockHat(e) {
+  var fishId = BigInt(e.target.dataset.fishid);
+  var hat = document.getElementById("unlockselection").value;
+  if (hat !== "") {
+    hat = convertHatValToServer(hat);
+    const actor = await iiAuth.getActor();
+    var results = await actor.unlockHatOnFish(fishId, hat);
+    if (results.ok !== undefined) {
+      var hatselector = document.getElementById("hat_" + fishId).firstChild;
+      var opt = document.createElement("option");
+      hat = convertHat(hat);
+      opt.value = hat.value;
+      opt.innerText = hat.label;
+      hatselector.appendChild(opt);
+    } else {
+      console.log("error trying to unlock hat");
+    }
+  }
+  document.getElementById("unlockhatmodal").classList.remove("showmodal");
 }
 
 async function toggleDisplayTank(e) {
