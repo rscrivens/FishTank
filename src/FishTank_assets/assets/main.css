@@ -209,3 +209,17 @@ button.hidden {
 .sortdsc::after {
   content: " \25BC ";
 }
+
+.storagecell .editbtn{
+  margin-left: 15%;
+  width: 20%;
+  cursor: pointer;
+}
+
+.hatsdropdown {
+  width: 65%;
+}
+
+.newstoragerow {
+  background-color: lightyellow;
+}

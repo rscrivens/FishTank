@@ -27,7 +27,7 @@ var storageCols = [
   { name: "favorite", label: "★" }, { name: "id", label: "Id" }, { name: "name", label: "Name" },
   { name: "level", label: "Level" }, { name: "eye_color", label: "Eyes" },
   { name: "color_1", label: "Body" }, { name: "color_2", label: "Accent" }, { name: "color_3", label: "Fins" },
-  { name: "speed", label: "Speed" }, { name: "size", label: "Size" }, { name: "acc_hat", label: "Hat" },
+  { name: "speed", label: "Speed" }, { name: "size", label: "Size" }, { name: "hat", label: "Hat" },
   { name: "displayed", label: "Displayed" }, { name: "staked", label: "Staked" }, { name: "donate", label: "Donate!" }
 ];
 
@@ -133,7 +133,7 @@ async function loadUserInfo() {
   document.getElementById("displayCount").innerText = userDisplayFish.length;
   document.getElementById("storageCount").innerText = user.fish.length - userDisplayFish.length;
   document.getElementById("tankAccCount").innerText = user.tank_accs.length;
-  document.getElementById("fishAccCount").innerText = user.fish_accs.length;
+  document.getElementById("fishHatUnlocksCount").innerText = user.fish_hats.length;
   document.getElementById("principalId").innerText = userPrincipalId;
   document.getElementById("loginStreak").innerText = user.login_streak;
   document.getElementById("createdDate").innerText = formatDate(user.created_date);
@@ -175,151 +175,239 @@ async function loadStorageInfo() {
 
     // Build rows
     for (let rindex = 0; rindex < userStorageTank.fish.length; rindex++) {
-      let row = document.createElement("div");
-      row.classList.add("storagerow");
-      var fishId = userStorageTank.fish[rindex];
-      row.dataset.fishid = fishId;
-
-      for (let rcindex = 0; rcindex < storageCols.length; rcindex++) {
-        var rowcell = document.createElement("label");
-        rowcell.classList.add("storagecell");
-        let prop = storageCols[rcindex].name;
-        rowcell.id = prop + "_" + fishId;
-
-        switch (prop) {
-          case "id":
-            let id = fishId;
-            rowcell.innerText = id;
-
-            rowcell.dataset.sortval = id;
-            break;
-          case "favorite":
-            let btn = document.createElement("button");
-            btn.classList.add("togglefavorite");
-            btn.addEventListener("click", favoriteClick);
-            updateFavoriteButton(btn, userStorageTank.fishMD[rindex].favorite);
-            rowcell.appendChild(btn);
-
-            rowcell.dataset.sortval = userStorageTank.fishMD[rindex].favorite;
-            break;
-          case "displayed":
-            let dCheckbox = document.createElement("input");
-            dCheckbox.type = "checkbox";
-            if (userStorageTank.inDisplay.indexOf(fishId) !== -1) {
-              dCheckbox.checked = true;
-            }
-            dCheckbox.addEventListener("click", toggleDisplayTank);
-            rowcell.appendChild(dCheckbox);
-            rowcell.style.textAlign = "center";
-
-            rowcell.dataset.sortval = dCheckbox.checked;
-            break;
-          case "staked":
-            let sCheckbox = document.createElement("input");
-            sCheckbox.type = "checkbox";
-            if (userStorageTank.inStaking.indexOf(fishId) !== -1) {
-              sCheckbox.checked = true;
-            }
-            // sCheckbox.addEventListener("click", toggleStakingTank);
-            sCheckbox.disabled = true;
-            rowcell.appendChild(sCheckbox);
-            rowcell.style.textAlign = "center";
-
-            rowcell.dataset.sortval = sCheckbox.checked;
-            break;
-          case "color_1":
-          case "color_2":
-          case "color_3":
-          case "eye_color":
-            let color = userStorageTank.fishMD[rindex].properties[prop];
-
-            let box = document.createElement("label");
-            box.style.backgroundColor = color;
-            box.title = color;
-            box.classList.add("color-box");
-
-            rowcell.style.textAlign = "center";
-
-            rowcell.appendChild(box);
-
-            rowcell.dataset.sortval = color;
-            break;
-          case "donate":
-            let donatebtn = document.createElement("button");
-            if (userStorageTank.fishMD[rindex].soul_bound == false) {
-              donatebtn.innerText = storageCols[rcindex].label;
-              donatebtn.title = "Donate fish with id " + fishId;
-              if (userStorageTank.fishMD[rindex].favorite === true) {
-                donatebtn.disabled = true;
-                donatebtn.title = "Unfavorite fish if you want to donate";
-              }
-              donatebtn.addEventListener("click", donateClick);
-              rowcell.dataset.sortval = donatebtn.disabled;
-
-            } else {
-              donatebtn.innerText = "Soul Bound";
-              donatebtn.title = "Fish is Soul Bound";
-              donatebtn.disabled = true;
-              rowcell.dataset.sortval = "soulbound";
-            }
-
-            rowcell.appendChild(donatebtn);
-            break;
-          case "speed":
-            let speed = userStorageTank.fishMD[rindex].properties[prop];
-            speed = convertSpeed(speed);
-            rowcell.innerText = speed.label;
-
-            rowcell.dataset.sortval = speed.label;
-            break;
-          case "size":
-            let size = userStorageTank.fishMD[rindex].properties[prop];
-            size = convertSize(size);
-            rowcell.innerText = size.label;
-
-            rowcell.dataset.sortval = size.label;
-            break;
-          default:
-            let label = userStorageTank.fishMD[rindex][prop];
-            if (label === undefined) {
-              label = userStorageTank.fishMD[rindex].properties[prop];
-            }
-            rowcell.innerText = label;
-
-            rowcell.dataset.sortval = label;
-        }
-
-        row.appendChild(rowcell);
-      }
+      var row = createStorageRow(rindex);
       tablesection.appendChild(row);
     }
   }
 }
 
-function convertSpeed(speed){
+function createStorageRow(storageIndex) {
+  let row = document.createElement("div");
+  row.classList.add("storagerow");
+  var fishId = userStorageTank.fish[storageIndex];
+  row.dataset.fishid = fishId;
+
+  for (let rcindex = 0; rcindex < storageCols.length; rcindex++) {
+    var rowcell = document.createElement("label");
+    rowcell.classList.add("storagecell");
+    let prop = storageCols[rcindex].name;
+    rowcell.id = prop + "_" + fishId;
+
+    switch (prop) {
+      case "id":
+        let id = fishId;
+        rowcell.innerText = id;
+
+        rowcell.dataset.sortval = id;
+        break;
+      case "favorite":
+        let btn = document.createElement("button");
+        btn.classList.add("togglefavorite");
+        btn.addEventListener("click", favoriteClick);
+        updateFavoriteButton(btn, userStorageTank.fishMD[storageIndex].favorite);
+        rowcell.appendChild(btn);
+
+        rowcell.dataset.sortval = userStorageTank.fishMD[storageIndex].favorite;
+        break;
+      case "displayed":
+        let dCheckbox = document.createElement("input");
+        dCheckbox.type = "checkbox";
+        if (userStorageTank.inDisplay.indexOf(fishId) !== -1) {
+          dCheckbox.checked = true;
+        }
+        dCheckbox.addEventListener("click", toggleDisplayTank);
+        rowcell.appendChild(dCheckbox);
+        rowcell.style.textAlign = "center";
+
+        rowcell.dataset.sortval = dCheckbox.checked;
+        break;
+      case "staked":
+        let sCheckbox = document.createElement("input");
+        sCheckbox.type = "checkbox";
+        if (userStorageTank.inStaking.indexOf(fishId) !== -1) {
+          sCheckbox.checked = true;
+        }
+        // sCheckbox.addEventListener("click", toggleStakingTank);
+        sCheckbox.disabled = true;
+        rowcell.appendChild(sCheckbox);
+        rowcell.style.textAlign = "center";
+
+        rowcell.dataset.sortval = sCheckbox.checked;
+        break;
+      case "color_1":
+      case "color_2":
+      case "color_3":
+      case "eye_color":
+        let color = userStorageTank.fishMD[storageIndex].properties[prop];
+
+        let box = document.createElement("label");
+        box.style.backgroundColor = color;
+        box.title = color;
+        box.classList.add("color-box");
+
+        rowcell.style.textAlign = "center";
+
+        rowcell.appendChild(box);
+
+        rowcell.dataset.sortval = color;
+        break;
+      case "donate":
+        let donatebtn = document.createElement("button");
+        if (userStorageTank.fishMD[storageIndex].soul_bound == false) {
+          donatebtn.innerText = storageCols[rcindex].label;
+          donatebtn.title = "Donate fish with id " + fishId;
+          if (userStorageTank.fishMD[storageIndex].favorite === true) {
+            donatebtn.disabled = true;
+            donatebtn.title = "Unfavorite fish if you want to donate";
+          }
+          donatebtn.addEventListener("click", donateClick);
+          rowcell.dataset.sortval = donatebtn.disabled;
+
+        } else {
+          donatebtn.innerText = "Soul Bound";
+          donatebtn.title = "Fish is Soul Bound";
+          donatebtn.disabled = true;
+          rowcell.dataset.sortval = "soulbound";
+        }
+
+        rowcell.appendChild(donatebtn);
+        break;
+      case "speed":
+        let speed = userStorageTank.fishMD[storageIndex].properties[prop];
+        speed = convertSpeed(speed);
+        rowcell.innerText = speed.label;
+
+        rowcell.dataset.sortval = speed.label;
+        break;
+      case "size":
+        let size = userStorageTank.fishMD[storageIndex].properties[prop];
+        size = convertSize(size);
+        rowcell.innerText = size.label;
+
+        rowcell.dataset.sortval = size.label;
+        break;
+      case "hat":
+        let hat = userStorageTank.fishMD[storageIndex].properties[prop];
+        hat = convertHat(hat);
+
+        // generate dropdown of unlocked hats for this fish
+        var hatsDropdown = generateHatsDropList(userStorageTank.fishMD[storageIndex].unlocked_hats, hat);
+        rowcell.appendChild(hatsDropdown);
+        // Unlock button to open a dialog for unlocking new hats for this fish
+
+        rowcell.dataset.sortval = hat.label;
+
+        var editbtn = document.createElement("button");
+        editbtn.classList.add("editbtn");
+        editbtn.innerText = "🔓";
+        editbtn.title = "Click to unlock hats";
+        editbtn.addEventListener("click", unlockHatClicked);
+        rowcell.appendChild(editbtn);
+        break;
+      default:
+        let label = userStorageTank.fishMD[storageIndex][prop];
+        if (label === undefined) {
+          label = userStorageTank.fishMD[storageIndex].properties[prop];
+        }
+        rowcell.innerText = label;
+
+        rowcell.dataset.sortval = label;
+    }
+
+    row.appendChild(rowcell);
+  }
+
+  return row;
+}
+
+function generateHatsDropList(unlocked_hats, curHat) {
+  var select = document.createElement("select");
+  select.classList.add("hatsdropdown");
+  for (let i = 0; i < unlocked_hats.length; i++) {
+    let opt = document.createElement("option");
+    let uhat = convertHat(unlocked_hats[i]);
+    opt.value = uhat.value;
+    opt.innerText = uhat.label;
+    if (uhat.value === curHat.value) {
+      opt.selected = true;
+    }
+    select.appendChild(opt);
+  }
+
+  select.addEventListener("change", setFishHat);
+
+  return select;
+}
+
+async function setFishHat(e) {
+  e.target.disabled = true;
+  var fishId = BigInt(e.target.parentElement.id.split("_")[1]);
+
+  var serverHat = convertHatValToServer(e.target.value);
+  const actor = await iiAuth.getActor();
+  var results = await actor.setFishHat(fishId, serverHat);
+  if (results.ok !== undefined) {
+    console.log(results.ok.properties.hat);
+    console.log("hat set");
+    var hatVal = convertHat(results.ok.properties.hat).value;
+    loadFishHat(fishId, hatVal);
+    e.target.parentElement.dataset.sortval = hatVal;
+    syncFishMD(fishId, results.ok);
+  }
+
+  e.target.disabled = false;
+}
+
+function convertSpeed(speed) {
   var label = "Average";
   var value = 1;
-  if(speed.SLOW === null){
+  if (speed.SLOW === null) {
     label = "Slow";
     value = 1.2;
-  }else if(speed.FAST === null){
+  } else if (speed.FAST === null) {
     label = "Fast";
     value = .8;
   }
-  return {label:label, value:value};
+  return { label: label, value: value };
 }
 
-function convertSize(size){
+function convertSize(size) {
   var label = "Average";
   var value = 1;
-  if(size.SMALL === null){
+  if (size.SMALL === null) {
     label = "Small";
     value = .75;
-  }else if(size.LARGE === null){
+  } else if (size.LARGE === null) {
     label = "Large";
     value = 1.25;
   }
-  return {label:label, value:value};
+  return { label: label, value: value };
+}
+
+function convertHat(hat) {
+  var label = "None";
+  var value = "";
+  if (hat.STRAW === null) {
+    label = "Straw";
+    value = "straw_hat";
+  } else if (hat.PARTY === null) {
+    label = "Party";
+    value = "party_hat";
+  }
+  return { label: label, value: value };
+}
+
+function convertHatValToServer(hat) {
+  var serverHat = {};
+  if (hat === "") {
+    serverHat.NONE = null;
+  } else if (hat === "straw_hat") {
+    serverHat.STRAW = null;
+  } else if (hat === "party_hat") {
+    serverHat.PARTY = null;
+  }
+
+  return serverHat;
 }
 
 function sortStorage(e) {
@@ -391,6 +479,12 @@ function sortStorage(e) {
   }
 }
 
+async function unlockHatClicked(e) {
+  var fishId = BigInt(e.target.parentElement.id.split("_")[1]);
+  console.log("trying to edit: " + fishId);
+
+}
+
 async function toggleDisplayTank(e) {
   e.target.disabled = true;
 
@@ -427,6 +521,24 @@ function addRemoveFromTankOnDisplay(addToTank, fishId) {
 
   tankOnDisplay = userDisplayTank;
   fishOnDisplay = userDisplayFish;
+}
+
+function syncFishMD(fishId, fishMD) {
+  var fishIndex = userDisplayTank.fish.indexOf(fishId);
+  if (fishIndex !== -1) {
+    userDisplayFish[fishIndex] = fishMD;
+  }
+
+  fishIndex = tankOnDisplay.fish.indexOf(fishId);
+  if (fishIndex !== -1) {
+    fishOnDisplay[fishIndex] = fishMD;
+  }
+
+  fishIndex = userStorageTank.fish.indexOf(fishId);
+  if (fishIndex !== -1) {
+    userStorageTank.fishMD[fishIndex] = fishMD;
+  }
+
 }
 
 async function login() {
@@ -532,6 +644,7 @@ function showTutorial() {
 
 async function tradeGfClick(e) {
   tradegfbtn.disabled = true;
+  tradegfbtn.innerText = "Trading...";
   const actor = await iiAuth.getActor();
   var claimResult = await actor.tradeGoldfish();
   if (claimResult.ok) {
@@ -539,12 +652,19 @@ async function tradeGfClick(e) {
     var tankobj = document.getElementById("tankobj").getSVGDocument();
     tankobj.getElementById("tank").removeChild(tankobj.getElementById("goldfish"));
     loadFish(claimResult.ok.fishId, claimResult.ok.metadata.properties);
+    userHasGoldfish = false;
+    tradegfbtn.innerText = "Trade Complete";
+  } else {
+    tradegfbtn.innerText = "Trade failed";
+    setTimeout(() => {
+      tradegfbtn.innerText = "Trade in!";
+      tradegfbtn.disabled = false;
+    }, 500);
   }
-
-  tradegfbtn.disabled = false;
 }
 
 async function donateClick(e) {
+  e.target.disabled = true;
   let fishId = e.target.parentElement.id.split("_")[1];
   let actor = await iiAuth.getActor();
   let result = await actor.donateFish(BigInt(fishId));
@@ -559,6 +679,7 @@ async function donateClick(e) {
     userStorageTank.fishMD.splice(fishIndex, 1);
   } else {
     console.log("error" + result.err);
+    e.target.disabled = false;
   }
 }
 
@@ -651,6 +772,15 @@ async function mint() {
       fishOnDisplay.push(metadata);
       var fishsvg = loadFish(fishId, metadata.properties);
 
+      // load the new fish row, add to the top of the storage info list
+      userStorageTank.fish.push(fishId);
+      userStorageTank.fishMD.push(metadata);
+      userStorageTank.inDisplay.push(fishId);
+      var newRow = createStorageRow(userStorageTank.fish.length - 1);
+      newRow.classList.add("newstoragerow");
+      var firstRow = document.getElementsByClassName("storagerow")[0]
+      firstRow.parentNode.insertBefore(newRow, firstRow);
+
       selectFish(fishsvg);
     }
   } catch (e) {
@@ -716,15 +846,14 @@ function selectFish(fishsvg) {
       fishinfosection.appendChild(createFishInfoEle("level", "level: ", fishdata.level, ""));
       fishinfosection.appendChild(createFishInfoEle("favorite", "favorite: ", fishdata.favorite, ""));
 
-      fishinfosection.appendChild(createFishInfoEle("speed", "speed: ", fishdata.properties.speed, ""));
-      fishinfosection.appendChild(createFishInfoEle("size", "size: ", fishdata.properties.size, ""));
-      fishinfosection.appendChild(createFishInfoEle("type", "type: ", fishdata.properties.body_type, ""));
-      fishinfosection.appendChild(createFishInfoEle("acchat", "acchat: ", fishdata.properties.acc_hat, ""));
+      fishinfosection.appendChild(createFishInfoEle("speed", "speed: ", convertSpeed(fishdata.properties.speed).label, ""));
+      fishinfosection.appendChild(createFishInfoEle("size", "size: ", convertSize(fishdata.properties.size).label, ""));
+      fishinfosection.appendChild(createFishInfoEle("hat", "hat: ", convertHat(fishdata.properties.hat).label, ""));
 
       fishinfosection.appendChild(createFishInfoColorEle("eye", "Eyes: ", fishdata.properties.eye_color, ""));
-      fishinfosection.appendChild(createFishInfoColorEle("color1", "Color 1: ", fishdata.properties.color_1, ""));
-      fishinfosection.appendChild(createFishInfoColorEle("color2", "Color 2: ", fishdata.properties.color_2, ""));
-      fishinfosection.appendChild(createFishInfoColorEle("color3", "Color 3: ", fishdata.properties.color_3, ""));
+      fishinfosection.appendChild(createFishInfoColorEle("color1", "Body: ", fishdata.properties.color_1, ""));
+      fishinfosection.appendChild(createFishInfoColorEle("color2", "Accent: ", fishdata.properties.color_2, ""));
+      fishinfosection.appendChild(createFishInfoColorEle("color3", "Fins: ", fishdata.properties.color_3, ""));
 
       let favBtn = document.getElementById("togglefavorite");
       updateFavoriteButton(favBtn, fishdata.favorite);
@@ -832,7 +961,7 @@ function loadFish(fishId, properties) {
   let fishBGRule = `#${fishPrefix} g:first-of-type rect{
           fill: transparent;
       }`;
-  
+
   let fishPartsRule = `#${fishPrefix} > g {
           transform: translateY(${y}px) translateX(-13%) scale(${.15 * size.value});
       }`;
@@ -840,7 +969,19 @@ function loadFish(fishId, properties) {
   fishesCSS.insertRule(fishBGRule, 0);
   fishesCSS.insertRule(fishPartsRule, 0);
   //triggerDelayedRedraw();
+
+
+  loadFishHat(fishId, convertHat(properties.hat).value);
+
   return fish;
+}
+
+function loadFishHat(fishId, hatVal) {
+  var fish = document.getElementById("tankobj").getSVGDocument().getElementById("fish_" + fishId);
+  fish.classList.remove("party_hat", "straw_hat");
+  if (hatVal !== "") {
+    fish.classList.add(hatVal);
+  }
 }
 
 function loadGoldfish() {

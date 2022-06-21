@@ -19,7 +19,7 @@ module {
         achievements        : [Text];
         created_date        : Nat;
         fish                : [FishId];
-        fish_accs           : [Text];
+        fish_hats           : [HatAcc];
         tank_accs           : [Text];
         wallets             : [{wallet:Text; id:Principal}];
         last_login          : Nat;
@@ -33,6 +33,7 @@ module {
         owner_history       : [TransferEvent];
         properties          : FishProps;
         soul_bound          : Bool;
+        unlocked_hats       : [HatAcc];
     };
 
     public type TransferEvent = {
@@ -42,7 +43,7 @@ module {
     };
 
     public type FishProps = {
-        acc_hat             : Text;
+        hat                 : HatAcc;
         body_type           : BodyType;
         color_1             : Text;
         color_2             : Text;
@@ -62,6 +63,12 @@ module {
         #SMALL;
         #AVERAGE;
         #LARGE;
+    };
+
+    public type HatAcc = {
+        #NONE;
+        #PARTY;
+        #STRAW;
     };
 
     public type BodyType = {
@@ -111,5 +118,8 @@ module {
         #INVALIDNAME;
         #FISHISFAVORITED;
         #FISHISSOULBOUND;
+        #ALREADYUNLOCKED;
+        #NOTUNLOCKED;
+        #NOUNLOCKAVAILABLE;
     };
 };

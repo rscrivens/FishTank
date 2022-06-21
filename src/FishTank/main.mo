@@ -23,7 +23,7 @@ actor class DRC721() {
     private stable let _name : Text = "Fish Tank";
     private stable let _symbol : Text = "FT";
     private stable var donateKey : ?Principal = null;
-    private stable var workaround : [(T.FishProps, T.FishSize, T.FishSpeed, T.TransferEvent, T.BodyType, T.UserId)] = [];
+    private stable var workaround : [(T.FishProps, T.FishSize, T.FishSpeed, T.TransferEvent, T.BodyType, T.UserId, T.HatAcc)] = [];
 
     private stable var fishEntries : [T.FishMetadata] = [];
     private stable var userEntries : [(T.UserKey, T.UserInfo)] = [];
@@ -125,12 +125,20 @@ actor class DRC721() {
     };
 */
 
-    public shared(msg) func donateFish(fishId:T.FishId) : async Result.Result<{fish_acc: Text},T.ErrorCode>{
+    public shared(msg) func donateFish(fishId:T.FishId) : async Result.Result<{fish_hat: T.HatAcc},T.ErrorCode>{
         if(Principal.isAnonymous(msg.caller)) {
             return #err(#LOGINREQUIRED);
         };
 
         return await _donateFish(msg.caller, fishId);
+    };
+
+    public shared(msg) func unlockHatOnFish(fishId:T.FishId, hat:T.HatAcc) : async Result.Result<T.FishMetadata,T.ErrorCode>{
+        if(Principal.isAnonymous(msg.caller)) {
+            return #err(#LOGINREQUIRED);
+        };
+
+        return await _unlockHatOnFish(msg.caller, fishId, hat);
     };
 
     public shared (msg) func createNewUser() : async Result.Result<T.LoggedInUserDetails,T.ErrorCode>{
@@ -164,6 +172,14 @@ actor class DRC721() {
         };
 
         return _setFishName(msg.caller, fishId, name);
+    };
+
+    public shared(msg) func setFishHat(fishId:T.FishId, hat:T.HatAcc) : async Result.Result<T.FishMetadata,T.ErrorCode>{
+        if(Principal.isAnonymous(msg.caller)) {
+            return #err(#LOGINREQUIRED);
+        };
+
+        return _setFishHat(msg.caller, fishId, hat);
     };
 
     public shared(msg) func toggleFavorite(fishId:T.FishId) : async Result.Result<Bool,T.ErrorCode>{
@@ -652,7 +668,7 @@ actor class DRC721() {
             achievements = [];
             created_date = Int.abs(Time.now());
             fish = [];
-            fish_accs = [];
+            fish_hats = [];
             tank_accs = [];
             wallets = [];
             last_login = Int.abs(Time.now());
@@ -743,7 +759,7 @@ actor class DRC721() {
                     return #err(#INVALIDNAME);
                 };
 
-                var new_fish = _editFish(fish, null, null, ?name, null, null, null);
+                var new_fish = _editFish(fish, null, null, ?name, null, null, null, null);
                 fish_buff.put(fish_id, new_fish);
 
                 return #ok(name);
@@ -751,7 +767,7 @@ actor class DRC721() {
         };
     };
 
-    private func _donateFish(u_key: T.UserKey, fish_id:T.FishId) : async Result.Result<{fish_acc: Text}, T.ErrorCode> {
+    private func _donateFish(u_key: T.UserKey, fish_id:T.FishId) : async Result.Result<{fish_hat: T.HatAcc}, T.ErrorCode> {
         let fish : T.FishMetadata = switch(fish_buff.getOpt(fish_id)){
             case(null){
                 return #err(#NOFISHFOUND);
@@ -778,9 +794,17 @@ actor class DRC721() {
         // Remove from Display tank if there
         _removeFromDisplayTank(user.id, fish_id);
 
-        // Remove fish from user
+        // Remove fish from user and add a random hat reward
         let new_fishIds = Array.filter(user.fish, func(id:T.FishId):Bool{ return id != fish_id});
-        let new_user_info : T.UserInfo = _editUserInfo(user, null, ?new_fishIds,  null, null, null, null, null);
+        let new_hat = await _get_random_hat();
+        let new_hats = Array.tabulate(user.fish_hats.size() + 1, func (index:Nat): T.HatAcc{
+            if(index != user.fish_hats.size()){
+                user.fish_hats[index];
+            } else {
+                new_hat;
+            };
+        });
+        let new_user_info : T.UserInfo = _editUserInfo(user, null, ?new_fishIds, ?new_hats, null, null, null, null);
         users_hash.put(u_key, new_user_info);
 
         // Update fish history
@@ -797,14 +821,92 @@ actor class DRC721() {
                 new_transfer_event;
             };
         });
-        var new_fish = _editFish(fish, null, ?(fish.level + 1), null, ?new_owner_history, null, null);
+        var new_fish = _editFish(fish, null, ?(fish.level + 1), null, ?new_owner_history, null, null, null);
         fish_buff.put(fish_id, new_fish);
 
         // transfer fish to adoptable fish buffer
         adoptable_fish_hash.put(fish_id,0);
 
-        // transfer random accessory to user's collection of accessories
-        return #ok({fish_acc=""});
+        return #ok({fish_hat= new_hat});
+    };
+
+    private func _unlockHatOnFish(u_key: T.UserKey, fish_id:T.FishId, hat:T.HatAcc) : async Result.Result<T.FishMetadata, T.ErrorCode> {
+        let fish : T.FishMetadata = switch(fish_buff.getOpt(fish_id)){
+            case(null){ return #err(#NOFISHFOUND); };
+            case(?fish){ fish; };
+        };
+        
+        if(not _isOwner(u_key, fish_id)){
+            return #err(#NOTAUTHORIZED);
+        };
+
+        let user = switch(users_hash.get(u_key)){case(null){return #err(#NOUSERFOUND)};case(?u){u};};
+        
+        // Check if hat is already unlocked for this fish
+        switch(Array.find(fish.unlocked_hats, func(unlocked_hat: T.HatAcc): Bool { unlocked_hat == hat;})){
+            case (null) { };
+            case (_) { return #err(#ALREADYUNLOCKED);};
+        };
+
+        // Remove the unlock accessory from user list
+        var removed = false;
+        let new_hats = Array.filter(user.fish_hats, func(u_hat:T.HatAcc):Bool{
+            if(removed == true){
+                return true;
+            };
+
+            let toBeRemoved: Bool = (hat == u_hat);
+            if(toBeRemoved){
+                removed := true;
+            };
+
+            return not toBeRemoved;
+        });
+
+        // Check an unlock was found(removed)
+        if(removed == false){ return #err(#NOUNLOCKAVAILABLE) };
+
+        let new_user_info : T.UserInfo = _editUserInfo(user, null, null, ?new_hats, null, null, null, null);
+        users_hash.put(u_key, new_user_info);
+
+        // Add the accessory to the unlocked hats array
+        let new_fish_prop : T.FishProps = _editFishProperties(fish.properties, ?hat);
+        let new_unlocked_hats : [T.HatAcc] = Array.tabulate(fish.unlocked_hats.size() + 1, func (index:Nat): T.HatAcc{
+            if(index != fish.unlocked_hats.size()){
+                fish.unlocked_hats[index];
+            } else {
+                hat;
+            };
+        });
+        let new_fish : T.FishMetadata = _editFish(fish, null, null, null, null, null, null, ?new_unlocked_hats);
+        fish_buff.put(fish_id, new_fish);
+
+        return #ok(new_fish);
+    };
+
+    private func _setFishHat(u_key: T.UserKey, fish_id:T.FishId, hat:T.HatAcc) : Result.Result<T.FishMetadata, T.ErrorCode> {
+        let fish : T.FishMetadata = switch(fish_buff.getOpt(fish_id)){
+            case(null){ return #err(#NOFISHFOUND); };
+            case(?fish){ fish; };
+        };
+        
+        if(not _isOwner(u_key, fish_id)){
+            return #err(#NOTAUTHORIZED);
+        };
+
+        let user = switch(users_hash.get(u_key)){case(null){return #err(#NOUSERFOUND)};case(?u){u};};
+        
+        // Check if hat is unlocked for this fish
+        switch(Array.find(fish.unlocked_hats, func(unlocked_hat: T.HatAcc): Bool { unlocked_hat == hat;})){
+            case (null) { return #err(#NOTUNLOCKED)};
+            case (_) { };
+        };
+
+        let new_fish_prop : T.FishProps = _editFishProperties(fish.properties, ?hat);
+        let new_fish : T.FishMetadata = _editFish(fish, null, null, null, null, ?new_fish_prop, null, null);
+        fish_buff.put(fish_id, new_fish);
+
+        return #ok(new_fish);
     };
 
     private func _toggleFavorite(u_key: T.UserKey, fish_id:T.FishId) : Result.Result<Bool,T.ErrorCode> {
@@ -821,14 +923,14 @@ actor class DRC721() {
             return #err(#NOTAUTHORIZED);
         };
 
-        var new_fish = _editFish(fish, ?(not fish.favorite), null, null, null, null, null);
+        var new_fish = _editFish(fish, ?(not fish.favorite), null, null, null, null, null, null);
         fish_buff.put(fish_id, new_fish);
 
         return #ok(new_fish.favorite);
     };
 
     private func _editFish(existing: T.FishMetadata, favorite:?Bool, level:?Nat, name:?Text, owner_history:?[T.TransferEvent], 
-    properties:?T.FishProps, soul_bound:?Bool) : T.FishMetadata {
+    properties:?T.FishProps, soul_bound:?Bool, unlocked_hats:?[T.HatAcc]) : T.FishMetadata {
         let new_fish : T.FishMetadata =  {
             favorite = switch(favorite){ case(null){existing.favorite}; case(?n){ n };};
             level = switch(level){ case(null){ existing.level }; case(?n){ n };};
@@ -836,18 +938,19 @@ actor class DRC721() {
             owner_history = switch(owner_history){ case(null){ existing.owner_history }; case(?n){ n };};
             properties = switch(properties){ case(null){ existing.properties }; case(?n){ n };};
             soul_bound = switch(soul_bound){ case(null){existing.soul_bound}; case(?n){ n };};
+            unlocked_hats = switch(unlocked_hats){ case(null){existing.unlocked_hats}; case(?n){ n };};
         };
 
         return new_fish;
     };
 
-    private func _editUserInfo(existing: T.UserInfo, achievements: ?[Text]/*achivements*/, fish: ?[T.FishId], fish_accs: ?[Text],
+    private func _editUserInfo(existing: T.UserInfo, achievements: ?[Text], fish: ?[T.FishId], fish_hats: ?[T.HatAcc],
     last_login: ?Nat, login_streak: ?Nat, tank_accs : ?[Text], wallets: ?[{id:Principal; wallet: Text}] ) : T.UserInfo{
         let new_user_info : T.UserInfo = {
             achievements = switch(achievements){ case(null){existing.achievements}; case(?n){ n };};
             created_date = existing.created_date;
             fish = switch(fish){ case(null){existing.fish}; case(?n){ n };};
-            fish_accs = switch(fish_accs){ case(null){existing.fish_accs}; case(?n){ n };};
+            fish_hats = switch(fish_hats){ case(null){existing.fish_hats}; case(?n){ n };};
             id = existing.id;
             last_login = switch(last_login){ case(null){existing.last_login}; case(?n){ n };};
             login_streak = switch(login_streak){ case(null){existing.login_streak}; case(?n){ n };};
@@ -856,6 +959,21 @@ actor class DRC721() {
         };
 
         return new_user_info;
+    };
+
+    private func _editFishProperties(existing: T.FishProps, hat: ?T.HatAcc ) : T.FishProps{
+        let new_fish_props : T.FishProps = {
+            hat = switch(hat){ case(null){existing.hat}; case(?n){ n };};
+            body_type = existing.body_type;
+            color_1 = existing.color_1;
+            color_2 = existing.color_2;
+            color_3 = existing.color_3;
+            eye_color = existing.eye_color;
+            size = existing.size;
+            speed = existing.speed;
+        };
+
+        return new_fish_props;
     };
     
     private func _isOwner(u_key: T.UserKey, fish_id: T.FishId) : Bool  {
@@ -1061,7 +1179,7 @@ actor class DRC721() {
                 time = Int.abs(Time.now());
             });
             properties: T.FishProps = {
-                acc_hat = "";
+                hat = #NONE;
                 body_type = #GOLDFISH;
                 color_1 = await _get_random_color1();
                 color_2 = await _get_random_color2();
@@ -1071,6 +1189,7 @@ actor class DRC721() {
                 size = await _get_random_size();
             };
             soul_bound = soul_bound;
+            unlocked_hats = [#NONE];
         };
 
         // need to add metadata to fish
@@ -1087,6 +1206,7 @@ actor class DRC721() {
         });
         let new_user_info : T.UserInfo = _editUserInfo(user, null, ?new_fish,  null, null, null, null, null);
         users_hash.put(u_key, new_user_info);
+        _addToDisplayTank(new_user_info.id, id);
         
         return #ok({fishId=id; metadata=fish});
     };
@@ -1163,6 +1283,11 @@ actor class DRC721() {
     private func _get_random_size() : async T.FishSize {
         let i : Nat = await _smallrand(sizes_for_fish.size());
         return (sizes_for_fish[i]);
+    };
+
+    private func _get_random_hat() : async T.HatAcc {
+        let i : Nat = await _smallrand(hats_for_fish.size());
+        return (hats_for_fish[i]);
     };
 
     private let colors_for_1 : [Text] = [
@@ -1297,6 +1422,11 @@ actor class DRC721() {
         #AVERAGE,
         #AVERAGE,
         #FAST
+    ];
+
+    private let hats_for_fish : [T.HatAcc] = [
+        #PARTY,
+        #STRAW
     ];
 
     private func _exportBackup(): Result.Result<T.Backup, T.ErrorCode>{
