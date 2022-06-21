@@ -85,13 +85,13 @@ async function menuLinkClicked(e) {
       loadRandomTank();
       showSection("random");
       break;
+    case "login":
     case "storage":
       await loadDisplayTank();
       await getStorageTank();
       loadStorageInfo();
       showSection("storage");
       break;
-    case "login":
     case "display":
       await loadDisplayTank();
       loadUserInfo();
@@ -653,6 +653,9 @@ async function login() {
     userDisplayTank = results.ok.display_tank;
     userDisplayFish = results.ok.display_fish;
     userHasGoldfish = results.ok.has_goldfish;
+    if(!userHasGoldfish){
+      document.getElementById("tradegoldfish").classList.add("hidden");
+    }
 
     userIsAdmin = results.ok.is_admin;
     if (userIsAdmin) {
@@ -748,6 +751,8 @@ async function tradeGfClick(e) {
     loadFish(claimResult.ok.fishId, claimResult.ok.metadata.properties);
     userHasGoldfish = false;
     tradegfbtn.innerText = "Trade Complete";
+    await getStorageTank();
+    loadStorageInfo();
   } else {
     tradegfbtn.innerText = "Trade failed";
     setTimeout(() => {
@@ -1177,3 +1182,7 @@ async function exportBackup(e) {
   document.getElementById("exportbackuptext").value = JSON.stringify(result.ok);
 }
 // End Admin Tasks ------------------------------------------------------------------------------------------
+
+
+// After loading page pull in a random tank
+loadRandomTank();
