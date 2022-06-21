@@ -31,17 +31,22 @@
       <object id="tankobj" data="tank.svg"></object>
     </section>
 
-    <section id="randomsection" class="actionssection hidden">
+    <section id="randomsection" class="actionssection">
       <button id="nextrandom" class="action">Next</button>
     </section>
 
     <section id="displaysection" class="actionssection hidden">
     </section>
 
+    <section id="selectedfishsection" class="infosection hidden">
+      <p>Selected fish Summary:</p>
+      <div id="selectedtablesection" class="infotable"></div>
+    </section>
+    
     <section id="storagesection" class="actionssection hidden">
       <button id="mint" class="action">Mint!</button>
       <button id="tradegoldfish" class="action hidden">Trade in!</button>
-      <div id="storagetablesection" class="storagetable"></div>
+      <div id="storagetablesection" class="infotable"></div>
     </section>
 
     <section id="unlockhatmodal" class="actionsection unlockhatwindow">
@@ -82,11 +87,6 @@
         <br>
         Principal:<text id="principalId"></text>
       </div>
-    </section>
-
-    <section id="selectedfishsection" class="infosection hidden">
-      <button id="togglefavorite" class="togglefavorite"></button>
-      <section id="fishinfosection"></section>
     </section>
 
     <section id="testnetbanner">
