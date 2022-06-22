@@ -580,6 +580,7 @@ async function unlockHatClicked(e) {
 }
 
 async function unlockHat(e) {
+  e.target.disabled = true;
   var fishId = BigInt(e.target.dataset.fishid);
   var hat = document.getElementById("unlockselection").value;
   if (hat !== "") {
@@ -600,6 +601,7 @@ async function unlockHat(e) {
       console.log("error trying to unlock hat");
     }
   }
+  e.target.disabled = false;
   document.getElementById("unlockhatmodal").classList.remove("showmodal");
 }
 
@@ -797,7 +799,7 @@ async function donateClick(e) {
     if (document.getElementById("displayed_" + fishId).firstChild.checked) {
       addRemoveFromTankOnDisplay(false, fishId);
     }
-    var fishrow = document.getElementById("id_" + fishId).parentElement;
+    var fishrow = document.querySelector("#storagetablesection #id_" + fishId).parentElement;
     fishrow.parentElement.removeChild(fishrow);
     var fishIndex = userStorageTank.fish.indexOf(fishId);
     userStorageTank.fish.splice(fishIndex, 1);
