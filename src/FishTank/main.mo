@@ -25,6 +25,9 @@ actor class DRC721() {
     private stable var donateKey : ?Principal = null;
     private stable var workaround : [(T.FishProps, T.FishSize, T.FishSpeed, T.TransferEvent, T.BodyType, T.UserId, T.HatAcc)] = [];
 
+    private stable var donated_fish : Nat = 0;
+    private stable var adopted_fish : Nat = 0;
+
     private stable var fishEntries : [T.FishMetadata] = [];
     private stable var userEntries : [(T.UserKey, T.UserInfo)] = [];
     private stable var userIdKeyEntries : [Text] = [];
@@ -60,6 +63,16 @@ actor class DRC721() {
 
     public shared query func getOwner(fishId : T.FishId) : async Result.Result<Text,T.ErrorCode> {
         return _getOwner(fishId);
+    };
+
+    public shared query func getServerStats() : async Result.Result<T.ServerStats,T.ErrorCode> {
+        return #ok({
+            adopted_fish = adopted_fish;
+            adoptable_fish = adoptable_fish_hash.size();
+            donated_fish = donated_fish;
+            minted_fish = fish_buff.size();
+            users = users_hash.size();
+        });
     };
 
     public shared query func getStakingTank(u_id : T.UserId) : async Result.Result<{tank:T.StakingTank;fish:[T.FishMetadata]},T.ErrorCode> {
@@ -159,7 +172,7 @@ actor class DRC721() {
             return #err(#LOGINREQUIRED);
         };
 
-        _log("Trying to mint: " # Principal.toText(msg.caller));
+        // _log("Trying to mint: " # Principal.toText(msg.caller));
 
         // Need to implement payment before minting
 
@@ -309,6 +322,8 @@ actor class DRC721() {
                 display_tank_buff.clear();
                 staking_tank_buff.clear();
                 userIdKey_buff.clear();
+                donated_fish := 0;
+                adopted_fish := 0;
 
                 return #ok();
             };
@@ -700,7 +715,7 @@ actor class DRC721() {
         staking_tank_buff.add(new_staking_tank);
 
         goldfishAirDrops.put(new_user.id, true);
-        _log("Added goldfish record with true");
+        // _log("Added goldfish record with true");
         return (new_user);
     };
 
@@ -827,6 +842,7 @@ actor class DRC721() {
         // transfer fish to adoptable fish buffer
         adoptable_fish_hash.put(fish_id,0);
 
+        donated_fish+=1;
         return #ok({fish_hat= new_hat});
     };
 
@@ -984,11 +1000,10 @@ actor class DRC721() {
             };
             case(?user){
                 switch(Array.find<T.FishId>(user.fish,func(user_fish_id:T.FishId){
-                    _log("comparing: " # Nat.toText(fish_id) # " to " # Nat.toText(user_fish_id));
                     return fish_id == user_fish_id;
                 })){
-                    case(null){ _log("matching fish not found"); return false; };
-                    case(_){  _log("matching fish found"); return true; };
+                    case(null){ _log("User is not the owner in isOwner"); return false; };
+                    case(_){ return true; };
                 };
             };
         };
@@ -1000,7 +1015,7 @@ actor class DRC721() {
         };
 
         var display_tank_index : Nat = await _largerand(display_tank_buff.size());
-        _log("Random display tank Index: " # Nat.toText(display_tank_index) # "/" # Nat.toText(display_tank_buff.size()));
+        // _log("Random display tank Index: " # Nat.toText(display_tank_index) # "/" # Nat.toText(display_tank_buff.size()));
 
         return _getDisplayTank(display_tank_index);
     };
@@ -1450,6 +1465,8 @@ actor class DRC721() {
             stakingTankEntries = staking_tank_buff.toArray();
             goldfishAirDropEntries = Iter.toArray(goldfishAirDrops.entries());
             adoptableFishEntries = Iter.toArray(adoptable_fish_hash.entries());
+            adopted_fish = adopted_fish;
+            donated_fish = donated_fish;
             donateKey = export_donate_key;
             adminsEntries = adminsEntries;
             logs = logs;
@@ -1475,6 +1492,8 @@ actor class DRC721() {
         staking_tank_buff.clear();
         for (tank in backup.stakingTankEntries.vals()) { staking_tank_buff.add(tank); };
 
+        adopted_fish := backup.adopted_fish;
+        donated_fish := backup.donated_fish;
         adminsEntries := backup.adminsEntries;
         switch(backup.donateKey){
             case(null){ };
@@ -1482,6 +1501,7 @@ actor class DRC721() {
                 donateKey := ?Principal.fromText(d);
             };
         };
+        logs := backup.logs;
 
         return #ok("imported backup");
     };

@@ -725,6 +725,8 @@ async function loadRandomTank() {
     goldfishOnDisplay = results.ok.has_goldfish;
     reloadTankOnDisplay();
   }
+
+  loadServerStatsInfo();
 }
 
 async function getStorageTank() {
@@ -1145,6 +1147,15 @@ function loadGoldfish() {
 
   fishCSS.insertRule(fishPartsRule, 0);
   // triggerDelayedRedraw();
+}
+
+async function loadServerStatsInfo(){
+  var results = await FishTank.getServerStats();
+  document.getElementById("serverstats_users").innerText = ` ${results.ok.users}`;
+  document.getElementById("serverstats_minted").innerText = ` ${results.ok.minted_fish}`;
+  document.getElementById("serverstats_donated").innerText = ` ${results.ok.donated_fish}`;
+  document.getElementById("serverstats_adopted").innerText = ` ${results.ok.adopted_fish}`;
+  document.getElementById("serverstats_adoptable").innerText = ` ${results.ok.adoptable_fish}`;
 }
 
 function triggerDelayedRedraw() {

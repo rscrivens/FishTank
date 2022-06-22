@@ -5,6 +5,14 @@ module {
     public type UserId  = Nat;
     public type FishId = Nat;
 
+    public type ServerStats = {
+        users               : Nat;
+        minted_fish         : Nat;
+        donated_fish        : Nat;
+        adopted_fish        : Nat;
+        adoptable_fish      : Nat;
+    };
+
     public type LoggedInUserDetails = {
         principalId         : Text;
         display_tank        : DisplayTank;
@@ -101,6 +109,9 @@ module {
         userEntries             : [(Text, UserInfo)];
         goldfishAirDropEntries  : [(UserId, Bool)];
         adoptableFishEntries    : [(FishId, Nat)];
+
+        donated_fish            : Nat;
+        adopted_fish            : Nat;
 
         adminsEntries           : [Text];
         donateKey               : ?Text;

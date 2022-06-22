@@ -31,18 +31,26 @@
       <object id="tankobj" data="tank.svg"></object>
     </section>
 
+    <section id="selectedfishsection" class="infosection hidden">
+      <p>Selected fish Summary:</p>
+      <div id="selectedtablesection" class="infotable"></div>
+    </section>
+
     <section id="randomsection" class="actionssection">
-      <button id="nextrandom" class="action">Next</button>
+      <button id="nextrandom" class="action" title="Click to load a random tank from the community">Next Random Tank</button>
+      <div>
+        <p>Community Stats</p>
+        <div>Users : <Text id="serverstats_users"></Text></div>
+        <div>Minted Fish : <Text id="serverstats_minted"></Text></div>
+        <div>Donated Fish : <Text id="serverstats_donated"></Text></div>
+        <div>Adopted Fish : <Text id="serverstats_adopted"></Text></div>
+        <div>Adoptable Fish : <Text id="serverstats_adoptable"></Text></div>
+      </div>
     </section>
 
     <section id="displaysection" class="actionssection hidden">
     </section>
 
-    <section id="selectedfishsection" class="infosection hidden">
-      <p>Selected fish Summary:</p>
-      <div id="selectedtablesection" class="infotable"></div>
-    </section>
-    
     <section id="storagesection" class="actionssection hidden">
       <button id="mint" class="action">Mint!</button>
       <button id="tradegoldfish" class="action hidden">Trade in!</button>
