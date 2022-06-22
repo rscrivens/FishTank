@@ -593,6 +593,9 @@ async function unlockHat(e) {
       opt.value = hat.value;
       opt.innerText = hat.label;
       hatselector.appendChild(opt);
+
+      user.fish_hats = results.ok.fish_hats;
+      syncFishMD(fishId, results.ok.fishMD);
     } else {
       console.log("error trying to unlock hat");
     }
@@ -797,10 +800,18 @@ async function donateClick(e) {
     var fishIndex = userStorageTank.fish.indexOf(fishId);
     userStorageTank.fish.splice(fishIndex, 1);
     userStorageTank.fishMD.splice(fishIndex, 1);
+    user.fish_hats.push(result.ok.fish_hat);
+
+    var hat = convertHat(result.ok.fish_hat);
+    showMessage(`You've recieved one ${hat.label} hat unlock!`);
   } else {
     console.log("error" + result.err);
     e.target.disabled = false;
   }
+}
+
+function showMessage(msg) {
+  console.log(msg);
 }
 
 async function favoriteClick(e) {
@@ -1092,9 +1103,13 @@ function loadFish(fishId, properties) {
 
 function loadFishHat(fishId, hatVal) {
   var fish = document.getElementById("tankobj").getSVGDocument().getElementById("fish_" + fishId);
-  fish.classList.remove("party_hat", "straw_hat");
-  if (hatVal !== "") {
-    fish.classList.add(hatVal);
+  if (fish !== undefined && fish !== null) {
+    fish.classList.remove("party_hat", "straw_hat");
+    if (hatVal !== "") {
+      fish.classList.add(hatVal);
+    }
+  } else{
+    console.log("Fish is not in display tank so no need to change it");
   }
 }
 

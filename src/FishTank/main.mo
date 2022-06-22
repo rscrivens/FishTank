@@ -133,7 +133,7 @@ actor class DRC721() {
         return await _donateFish(msg.caller, fishId);
     };
 
-    public shared(msg) func unlockHatOnFish(fishId:T.FishId, hat:T.HatAcc) : async Result.Result<T.FishMetadata,T.ErrorCode>{
+    public shared(msg) func unlockHatOnFish(fishId:T.FishId, hat:T.HatAcc) : async Result.Result<{fish_hats:[T.HatAcc];fishMD:T.FishMetadata},T.ErrorCode>{
         if(Principal.isAnonymous(msg.caller)) {
             return #err(#LOGINREQUIRED);
         };
@@ -830,7 +830,7 @@ actor class DRC721() {
         return #ok({fish_hat= new_hat});
     };
 
-    private func _unlockHatOnFish(u_key: T.UserKey, fish_id:T.FishId, hat:T.HatAcc) : async Result.Result<T.FishMetadata, T.ErrorCode> {
+    private func _unlockHatOnFish(u_key: T.UserKey, fish_id:T.FishId, hat:T.HatAcc) : async Result.Result<{fish_hats:[T.HatAcc];fishMD:T.FishMetadata}, T.ErrorCode> {
         let fish : T.FishMetadata = switch(fish_buff.getOpt(fish_id)){
             case(null){ return #err(#NOFISHFOUND); };
             case(?fish){ fish; };
@@ -881,7 +881,7 @@ actor class DRC721() {
         let new_fish : T.FishMetadata = _editFish(fish, null, null, null, null, null, null, ?new_unlocked_hats);
         fish_buff.put(fish_id, new_fish);
 
-        return #ok(new_fish);
+        return #ok({fish_hats=new_hats; fishMD=new_fish});
     };
 
     private func _setFishHat(u_key: T.UserKey, fish_id:T.FishId, hat:T.HatAcc) : Result.Result<T.FishMetadata, T.ErrorCode> {
