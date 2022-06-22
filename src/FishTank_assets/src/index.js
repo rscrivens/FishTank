@@ -309,7 +309,7 @@ function createInfoRow(fishId, fishMD, includePrivate) {
 
           // generate dropdown of unlocked hats for this fish
           var hatsDropdown = generateHatsDropList(fishMD.unlocked_hats, hat);
-          if(includePrivate){
+          if (includePrivate) {
             hatsDropdown.addEventListener("change", setFishHat);
           }
           rowcell.appendChild(hatsDropdown);
@@ -1064,8 +1064,20 @@ function loadFish(fishId, properties) {
           fill: transparent;
       }`;
 
+  var startXPos;
+  switch (size.label) {
+    case "Small":
+      startXPos = -9.75;
+      break;
+    case "Large":
+      startXPos = -16.25;
+      break;
+    default:
+      startXPos = -13;
+  }
+
   let fishPartsRule = `#${fishPrefix} > g {
-          transform: translateY(${y}px) translateX(-13%) scale(${.15 * size.value});
+          transform: translateY(${y}px) translateX(${startXPos}%) scale(${.15 * size.value});
       }`;
 
   fishesCSS.insertRule(fishBGRule, 0);
