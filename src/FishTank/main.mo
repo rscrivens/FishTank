@@ -688,6 +688,9 @@ actor class DRC721() {
             wallets = [];
             last_login = Int.abs(Time.now());
             login_streak = 1;
+            num_adopted = 0;
+            num_donated = 0;
+            num_minted = 0;
         };
 
         let new_display_tank : T.DisplayTank = {
@@ -729,7 +732,7 @@ actor class DRC721() {
                 let now : Nat = Int.abs(Time.now());
                 var new_login_streak = user.login_streak + 1;
 
-                let new_user_info : T.UserInfo = _editUserInfo(user, null, null,  null, ?now, ?new_login_streak, null, null);
+                let new_user_info : T.UserInfo = _editUserInfo(user, null, null,  null, ?now, ?new_login_streak, null, null, null, null, null);
 
                 let display_res = switch(_getDisplayTank(user.id)) {
                     case (#err(error)){ return #err(error); };
@@ -819,7 +822,8 @@ actor class DRC721() {
                 new_hat;
             };
         });
-        let new_user_info : T.UserInfo = _editUserInfo(user, null, ?new_fishIds, ?new_hats, null, null, null, null);
+        let new_num_donated = user.num_donated + 1;
+        let new_user_info : T.UserInfo = _editUserInfo(user, null, ?new_fishIds, ?new_hats, null, null, null, null, null, ?new_num_donated, null);
         users_hash.put(u_key, new_user_info);
 
         // Update fish history
@@ -882,7 +886,7 @@ actor class DRC721() {
         // Check an unlock was found(removed)
         if(removed == false){ return #err(#NOUNLOCKAVAILABLE) };
 
-        let new_user_info : T.UserInfo = _editUserInfo(user, null, null, ?new_hats, null, null, null, null);
+        let new_user_info : T.UserInfo = _editUserInfo(user, null, null, ?new_hats, null, null, null, null, null, null, null);
         users_hash.put(u_key, new_user_info);
 
         // Add the accessory to the unlocked hats array
@@ -961,7 +965,8 @@ actor class DRC721() {
     };
 
     private func _editUserInfo(existing: T.UserInfo, achievements: ?[Text], fish: ?[T.FishId], fish_hats: ?[T.HatAcc],
-    last_login: ?Nat, login_streak: ?Nat, tank_accs : ?[Text], wallets: ?[{id:Principal; wallet: Text}] ) : T.UserInfo{
+    last_login: ?Nat, login_streak: ?Nat, tank_accs : ?[Text], wallets: ?[{id:Principal; wallet: Text}],
+    num_adopted: ?Nat, num_donated: ?Nat, num_minted: ?Nat ) : T.UserInfo{
         let new_user_info : T.UserInfo = {
             achievements = switch(achievements){ case(null){existing.achievements}; case(?n){ n };};
             created_date = existing.created_date;
@@ -972,6 +977,9 @@ actor class DRC721() {
             login_streak = switch(login_streak){ case(null){existing.login_streak}; case(?n){ n };};
             tank_accs = switch(tank_accs){ case(null){existing.tank_accs}; case(?n){ n };};
             wallets = switch(wallets){ case(null){existing.wallets}; case(?n){ n };};
+            num_adopted = switch(num_adopted){ case(null){existing.num_adopted}; case(?n){ n };};
+            num_donated = switch(num_donated){ case(null){existing.num_donated}; case(?n){ n };};
+            num_minted = switch(num_minted){ case(null){existing.num_minted}; case(?n){ n };};
         };
 
         return new_user_info;
@@ -1219,7 +1227,8 @@ actor class DRC721() {
                 id;
             };
         });
-        let new_user_info : T.UserInfo = _editUserInfo(user, null, ?new_fish,  null, null, null, null, null);
+        let new_num_minted = user.num_minted + 1;
+        let new_user_info : T.UserInfo = _editUserInfo(user, null, ?new_fish,  null, null, null, null, null, null, null, ?new_num_minted);
         users_hash.put(u_key, new_user_info);
         _addToDisplayTank(new_user_info.id, id);
         

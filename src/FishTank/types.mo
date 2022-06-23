@@ -32,6 +32,21 @@ module {
         wallets             : [{wallet:Text; id:Principal}];
         last_login          : Nat;
         login_streak        : Nat;
+        num_minted          : Nat;
+        num_donated         : Nat;
+        num_adopted         : Nat;
+    };
+
+    public type UserInfoOld = {
+        id                  : UserId;
+        achievements        : [Text];
+        created_date        : Nat;
+        fish                : [FishId];
+        fish_hats           : [HatAcc];
+        tank_accs           : [Text];
+        wallets             : [{wallet:Text; id:Principal}];
+        last_login          : Nat;
+        login_streak        : Nat;
     };
 
     public type FishMetadata = {
