@@ -178,8 +178,8 @@ module {
     };
 
     public type ErrorCode = {
-        #GOLDFISHCLAIMED;
-        #NOGOLDFISH;
+        #GOLDENFISHCLAIMED;
+        #NOGOLDENFISH;
         #NOUSERFOUND;
         #NOFISHFOUND;
         #LOGINREQUIRED;

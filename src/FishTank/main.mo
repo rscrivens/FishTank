@@ -274,11 +274,11 @@ actor class DRC721() {
     };
 */
     /*********************** ADMIN **********************/
-    public shared(msg) func airdropGoldfish(rate:Float) : async Result.Result<Text, T.ErrorCode> {
+    public shared(msg) func airdropGoldenfish(rate:Float) : async Result.Result<Text, T.ErrorCode> {
         switch(_verifyAdmin(msg.caller)){
             case(#err(t)){ return #err(t)};
             case(#ok(t)){
-                return await _airdropGoldfish(rate);
+                return await _airdropGoldenfish(rate);
             };
         };
     };
@@ -949,7 +949,7 @@ actor class DRC721() {
         return _getDisplayTank(display_tank_index);
     };
 
-    private func _airdropGoldfish(drop_percent: Float) : async Result.Result<Text, T.ErrorCode>{
+    private func _airdropGoldenfish(drop_percent: Float) : async Result.Result<Text, T.ErrorCode>{
         // need to clear old airdrop hash
         for(k in goldenfishAirDrops.keys()) { goldenfishAirDrops.delete(k); };
 
@@ -979,11 +979,11 @@ actor class DRC721() {
         var airDrop: ?Bool = goldenfishAirDrops.get(u_id);
         switch(airDrop){
             case(null){
-                return #err(#NOGOLDFISH);
+                return #err(#NOGOLDENFISH);
             };
             case(?aD){
                 if(aD == false){
-                    return #err(#GOLDFISHCLAIMED);
+                    return #err(#GOLDENFISHCLAIMED);
                 };
 
                 // claim the fish
@@ -993,7 +993,7 @@ actor class DRC721() {
         };
     };
 
-    /*private func _allOwnedTokens(p : Principal) : {fish:[{id:T.TokenId; metadata:T.TokenMetadata}]; hasGoldfish: Bool} {
+    /*private func _allOwnedTokens(p : Principal) : {fish:[{id:T.TokenId; metadata:T.TokenMetadata}]; hasGoldenfish: Bool} {
         var ret_arr: [var {id:T.TokenId; metadata:T.TokenMetadata}] = [var];
         switch(balances.get(p)){
             case(null){
@@ -1041,7 +1041,7 @@ actor class DRC721() {
                 has_gold_fish:= hasgf;
             };
         };
-        return {fish=(Array.freeze(ret_arr)); hasGoldfish=has_gold_fish};
+        return {fish=(Array.freeze(ret_arr)); hasGoldenfish=has_gold_fish};
     };*/
 
     /*

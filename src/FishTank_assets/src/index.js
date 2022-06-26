@@ -14,14 +14,14 @@ var userPrincipalId;
 var userIsAdmin;
 var userDisplayTank;
 var userDisplayFish = [];
-var userHasGoldfish = false;
+var userHasGoldenfish = false;
 var userStorageTank;
 
 var storageSortAsc = true;
 
 var tankOnDisplay;
 var fishOnDisplay;
-var goldfishOnDisplay;
+var goldenfishOnDisplay;
 
 var infoCols = [
   { name: "favorite", label: "★", private: true },
@@ -66,7 +66,7 @@ BigInt.prototype.toJSON = function () { return Number(this); }
 document.getElementById("exportbackupbtn").addEventListener("click", exportBackup);
 document.getElementById("importbackupbtn").addEventListener("click", importBackup);
 
-const tradegfbtn = document.getElementById("tradegoldfish");
+const tradegfbtn = document.getElementById("tradegoldenfish");
 const mintbtn = document.getElementById("mint");
 const nextrandbtn = document.getElementById("nextrandom");
 
@@ -678,9 +678,9 @@ async function login() {
 
     userDisplayTank = results.ok.display_tank;
     userDisplayFish = results.ok.display_fish;
-    userHasGoldfish = results.ok.has_goldfish;
-    if (userHasGoldfish) {
-      document.getElementById("tradegoldfish").classList.remove("hidden");
+    userHasGoldenfish = results.ok.has_goldenfish;
+    if (userHasGoldenfish) {
+      document.getElementById("tradegoldenfish").classList.remove("hidden");
     }
 
     userIsAdmin = results.ok.is_admin;
@@ -697,7 +697,7 @@ async function logout() {
   userPrincipalId = undefined;
   userDisplayFish = undefined;
   userDisplayFish = [];
-  userHasGoldfish = false;
+  userHasGoldenfish = false;
   userIsAdmin = false;
   document.getElementById("navdropdown").classList.remove("isAdmin");
 
@@ -715,7 +715,7 @@ async function loadDisplayTank() {
 
   tankOnDisplay = userDisplayTank;
   fishOnDisplay = userDisplayFish;
-  goldfishOnDisplay = userHasGoldfish;
+  goldenfishOnDisplay = userHasGoldenfish;
   reloadTankOnDisplay();
 }
 
@@ -724,7 +724,7 @@ async function loadRandomTank() {
   if (results.ok) {
     tankOnDisplay = results.ok.tank;
     fishOnDisplay = results.ok.fish;
-    goldfishOnDisplay = results.ok.has_goldfish;
+    goldenfishOnDisplay = results.ok.has_goldenfish;
     reloadTankOnDisplay();
   }
 
@@ -753,8 +753,8 @@ function reloadTankOnDisplay() {
     loadFish(tankOnDisplay.fish[i], fishOnDisplay[i].properties);
   }
 
-  if (goldfishOnDisplay) {
-    loadGoldfish();
+  if (goldenfishOnDisplay) {
+    loadGoldenfish();
   }
 }
 
@@ -771,13 +771,13 @@ async function tradeGfClick(e) {
   tradegfbtn.disabled = true;
   tradegfbtn.innerText = "Trading...";
   const actor = await iiAuth.getActor();
-  var claimResult = await actor.tradeGoldfish();
+  var claimResult = await actor.tradeGoldenfish();
   if (claimResult.ok) {
     console.log(claimResult);
     var tankobj = document.getElementById("tankobj").getSVGDocument();
-    tankobj.getElementById("tank").removeChild(tankobj.getElementById("goldfish"));
+    tankobj.getElementById("tank").removeChild(tankobj.getElementById("goldenfish"));
     loadFish(claimResult.ok.fishId, claimResult.ok.metadata.properties);
-    userHasGoldfish = false;
+    userHasGoldenfish = false;
     tradegfbtn.innerText = "Trade Complete";
     await getStorageTank();
     loadStorageInfo();
@@ -957,7 +957,7 @@ function selectFish(fishsvg) {
     fishsvg.classList.add("selectedfish");
 
     // Determine which buttons should be shown
-    if (fishsvg.id === "goldfish") {
+    if (fishsvg.id === "goldenfish") {
       tradegfbtn.classList.remove("hidden");
     } else {
       tradegfbtn.classList.add("hidden");
@@ -965,7 +965,7 @@ function selectFish(fishsvg) {
 
     // Show the fish info
     var fishid = fishsvg.id;
-    if (fishid !== "goldfish") {
+    if (fishid !== "goldenfish") {
       let table = document.getElementById("selectedtablesection");
       while (table.hasChildNodes()) {
         table.removeChild(table.childNodes[0]);
@@ -1117,11 +1117,11 @@ function loadFishHat(fishId, hatVal) {
   }
 }
 
-function loadGoldfish() {
+function loadGoldenfish() {
   var fishCSS = document.getElementById("tankobj").getSVGDocument().getElementById('fishes').sheet;
   var tank = document.getElementById("tankobj").getSVGDocument().getElementById("tank");
-  var basegoldfish = document.getElementById("goldfishobj").getSVGDocument().getElementById("goldfish");
-  let goldfish = basegoldfish.cloneNode(true);
+  var basegoldenfish = document.getElementById("goldenfishobj").getSVGDocument().getElementById("goldenfish");
+  let goldenfish = basegoldenfish.cloneNode(true);
 
   let animationDelay = Math.random() * 5;
   let animationTime = (Math.random() * 15) + 30;
@@ -1132,18 +1132,18 @@ function loadGoldfish() {
   y = y * 1080;
 
   //let fishPrefix = "fish_" + fishId;
-  var innerhtml = goldfish.innerHTML;
+  var innerhtml = goldenfish.innerHTML;
   innerhtml = innerhtml.replaceAll("animation-duration: 30s;", `animation-duration: ${animationTime}s;`);
   innerhtml = innerhtml.replaceAll("animation-delay: 0s;", `animation-delay: ${animationDelay}s;`);
   innerhtml = innerhtml.replaceAll("translateY(1000000px)", `translateY(${y}px)`);
   //innerhtml = innerhtml.replaceAll("base_fish", fishPrefix);
-  goldfish.innerHTML = innerhtml;
+  goldenfish.innerHTML = innerhtml;
 
-  tank.appendChild(goldfish);
+  tank.appendChild(goldenfish);
   //fish.id = fishPrefix;
 
-  goldfish.getElementById("Layer_2").addEventListener("click", clickedOnFish);
-  let fishPartsRule = `#goldfish g {
+  goldenfish.getElementById("Layer_2").addEventListener("click", clickedOnFish);
+  let fishPartsRule = `#goldenfish g {
           transform: translateY(${y}px) translateX(-13%) scale(${.15});
       }`;
 
