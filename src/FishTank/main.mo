@@ -10,7 +10,6 @@ import HashMap "mo:base/HashMap";
 import Int "mo:base/Int";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
-import Nat64 "mo:base/Nat64";
 import Option "mo:base/Option";
 import Principal "mo:base/Principal";
 import Random "mo:base/Random";
@@ -18,7 +17,6 @@ import T "types";
 import H "helpers";
 import Time "mo:base/Time";
 import Result "mo:base/Result";
-import F "ledger_types";
 
 actor class DRC721() {
     private stable let _name : Text = "Fish Tank";
@@ -34,7 +32,7 @@ actor class DRC721() {
     private stable var userIdKeyEntries : [Text] = [];
     private stable var displayTankEntries : [T.DisplayTank] = [];
     private stable var stakingTankEntries : [T.StakingTank] = [];
-    private stable var goldfishAirDropEntries : [(T.UserId, Bool)] = [];
+    private stable var goldenfishAirDropEntries : [(T.UserId, Bool)] = [];
     private stable var adoptableFishEntries: [(T.FishId, Nat)] = [];
 
     private let fish_buff = Buffer.Buffer<T.FishMetadata>(0);
@@ -42,7 +40,7 @@ actor class DRC721() {
     private let display_tank_buff = Buffer.Buffer<T.DisplayTank>(0);
     private let staking_tank_buff = Buffer.Buffer<T.StakingTank>(0);
     private let users_hash : HashMap.HashMap<T.UserKey, T.UserInfo> = HashMap.fromIter<T.UserKey, T.UserInfo>(userEntries.vals(), 10, Principal.equal, Principal.hash);
-    private let goldfishAirDrops : HashMap.HashMap<T.UserId, Bool> = HashMap.fromIter<T.UserId, Bool>(goldfishAirDropEntries.vals(), 10, Nat.equal, Hash.hash);
+    private let goldenfishAirDrops : HashMap.HashMap<T.UserId, Bool> = HashMap.fromIter<T.UserId, Bool>(goldenfishAirDropEntries.vals(), 10, Nat.equal, Hash.hash);
     private let adoptable_fish_hash : HashMap.HashMap<T.FishId, Nat> = HashMap.fromIter<T.FishId, Nat>(adoptableFishEntries.vals(), 10, Nat.equal, Hash.hash);
 
     private var finite : Random.Finite = Random.Finite(Blob.fromArray([]));
@@ -164,7 +162,7 @@ actor class DRC721() {
         return _login(msg.caller);
     };
 
-    public shared func getRandomTank() : async Result.Result<{tank:T.DisplayTank;fish:[T.FishMetadata];has_goldfish:Bool},T.ErrorCode> {
+    public shared func getRandomTank() : async Result.Result<{tank:T.DisplayTank;fish:[T.FishMetadata];has_goldenfish:Bool},T.ErrorCode> {
         return await _getRandomTank();
     };
 
@@ -204,12 +202,12 @@ actor class DRC721() {
         return _toggleFavorite(msg.caller, fishId);
     };
 
-    public shared(msg) func tradeGoldfish() : async Result.Result<{fishId:T.FishId; metadata:T.FishMetadata},T.ErrorCode> {
+    public shared(msg) func tradeGoldenfish() : async Result.Result<{fishId:T.FishId; metadata:T.FishMetadata},T.ErrorCode> {
         if(Principal.isAnonymous(msg.caller)) {
             return #err(#LOGINREQUIRED);
         };
 
-        return await _tradeGoldfish(msg.caller);
+        return await _tradeGoldenfish(msg.caller);
     };
 
 /*
@@ -317,7 +315,7 @@ actor class DRC721() {
             case(#err(t)){ return #err(t)};
             case(#ok(t)){
                 for(k in users_hash.keys()) { users_hash.delete(k); };
-                for(k in goldfishAirDrops.keys()) { goldfishAirDrops.delete(k); };
+                for(k in goldenfishAirDrops.keys()) { goldenfishAirDrops.delete(k); };
                 for(k in adoptable_fish_hash.keys()) { adoptable_fish_hash.delete(k); };
                 fish_buff.clear();
                 display_tank_buff.clear();
@@ -452,7 +450,7 @@ actor class DRC721() {
         return fish;
     };
 
-    private func _getDisplayTank(u_id : T.UserId) : Result.Result<{tank:T.DisplayTank;fish:[T.FishMetadata];has_goldfish:Bool},T.ErrorCode> {
+    private func _getDisplayTank(u_id : T.UserId) : Result.Result<{tank:T.DisplayTank;fish:[T.FishMetadata];has_goldenfish:Bool},T.ErrorCode> {
         switch(display_tank_buff.getOpt(u_id)){
             case(null){
                 return #err(#NOUSERFOUND);
@@ -460,13 +458,13 @@ actor class DRC721() {
             case(?display_tank){
                 let fish_metadata:[T.FishMetadata] = _getFishMetadata(display_tank.fish);
                 var has_gf = false;
-                switch(goldfishAirDrops.get(u_id)){
+                switch(goldenfishAirDrops.get(u_id)){
                     case(null){};
                     case(?ad){
                         has_gf := ad;
                     };
                 };
-                return #ok({tank=display_tank;fish=fish_metadata;has_goldfish=has_gf});
+                return #ok({tank=display_tank;fish=fish_metadata;has_goldenfish=has_gf});
             };
         };
     };
@@ -689,8 +687,8 @@ actor class DRC721() {
         display_tank_buff.add(new_display_tank);
         staking_tank_buff.add(new_staking_tank);
 
-        goldfishAirDrops.put(new_user.id, true);
-        // _log("Added goldfish record with true");
+        goldenfishAirDrops.put(new_user.id, true);
+        // _log("Added goldenfish record with true");
         return (new_user);
     };
 
@@ -727,7 +725,7 @@ actor class DRC721() {
                     principalId = Principal.toText(u_key);
                     display_tank = display_res.tank;
                     display_fish = display_res.fish;
-                    has_goldfish = display_res.has_goldfish;
+                    has_goldenfish = display_res.has_goldenfish;
                     user_info = new_user_info;
                     is_admin = is_admin;
                 });
@@ -940,7 +938,7 @@ actor class DRC721() {
         };
     };
 
-    private func _getRandomTank() : async Result.Result<{tank:T.DisplayTank;fish:[T.FishMetadata];has_goldfish:Bool},T.ErrorCode> {
+    private func _getRandomTank() : async Result.Result<{tank:T.DisplayTank;fish:[T.FishMetadata];has_goldenfish:Bool},T.ErrorCode> {
         if(display_tank_buff.size() < 1 ){
             return #err(#NOUSERFOUND);
         };
@@ -953,19 +951,19 @@ actor class DRC721() {
 
     private func _airdropGoldfish(drop_percent: Float) : async Result.Result<Text, T.ErrorCode>{
         // need to clear old airdrop hash
-        for(k in goldfishAirDrops.keys()) { goldfishAirDrops.delete(k); };
+        for(k in goldenfishAirDrops.keys()) { goldenfishAirDrops.delete(k); };
 
         let p_array = Iter.toArray(users_hash.keys());
 
         // get updated count to be dropped
         var airdropcount : Nat = Int.abs(Float.toInt(Float.ceil(Float.fromInt(p_array.size()) * drop_percent)));
 
-        while ( goldfishAirDrops.size() < airdropcount) {
+        while ( goldenfishAirDrops.size() < airdropcount) {
             var index : Nat = await _largerand(p_array.size());
             let u_id = switch(users_hash.get(p_array[index])){case(null){return #err(#NOUSERFOUND)}; case(?u){u.id;};};
-            switch(goldfishAirDrops.get(u_id)){
+            switch(goldenfishAirDrops.get(u_id)){
                 case(null){
-                    goldfishAirDrops.put(u_id, true);
+                    goldenfishAirDrops.put(u_id, true);
                 };
                 case(?ad){
                     _log("Duplicate airdrop profile generated:" # Nat.toText(u_id));
@@ -976,9 +974,9 @@ actor class DRC721() {
         return #ok("");
     };
 
-    private func _tradeGoldfish(p : Principal) : async Result.Result<{fishId:T.FishId; metadata:T.FishMetadata},T.ErrorCode> {
+    private func _tradeGoldenfish(p : Principal) : async Result.Result<{fishId:T.FishId; metadata:T.FishMetadata},T.ErrorCode> {
         let u_id = switch(users_hash.get(p)){case(null){return #err(#NOUSERFOUND)}; case(?u){u.id;};};
-        var airDrop: ?Bool = goldfishAirDrops.get(u_id);
+        var airDrop: ?Bool = goldenfishAirDrops.get(u_id);
         switch(airDrop){
             case(null){
                 return #err(#NOGOLDFISH);
@@ -989,7 +987,7 @@ actor class DRC721() {
                 };
 
                 // claim the fish
-                goldfishAirDrops.put(u_id,false);
+                goldenfishAirDrops.put(u_id,false);
                 return await _mint(p, true);
             };
         };
@@ -1034,12 +1032,12 @@ actor class DRC721() {
 
         var has_gold_fish : Bool = false;
         
-        switch(goldfishAirDrops.get(p)){
+        switch(goldenfishAirDrops.get(p)){
             case(null){
-                _log("no goldfish record");
+                _log("no goldenfish record");
             };
             case(?hasgf){
-                _log("has goldfish record");
+                _log("has goldenfish record");
                 has_gold_fish:= hasgf;
             };
         };
@@ -1172,20 +1170,20 @@ actor class DRC721() {
     };
 
     private func _rand(max: Nat, range_p: Nat8, maxRand: Float) : async Nat{
-        // let range_p : Nat8 = 7;
-
-        var next: ?Nat = finite.range(range_p);
-        if(next == null){
-            var b: Blob = await Random.blob();
-            finite := Random.Finite(b);
-            next := finite.range(range_p);
-            Debug.print("created new Finite");
+        var next: Nat = switch(finite.range(range_p)){
+            case(null){
+                Debug.print("created new Finite");
+                var b: Blob = await Random.blob();
+                finite := Random.Finite(b);
+                switch(finite.range(range_p)){
+                    case(null){ 0; };
+                    case(?n){ n; };
+                };
+            };
+            case(?n){ n; };
         };
 
-        Debug.print("rand: " # Nat.toText(Option.get(next, 0)));
-
-        // let maxRand : Float = 127;
-        var randPercent : Float = Float.fromInt(Option.get(next, 0)) / maxRand;
+        var randPercent : Float = Float.fromInt(next) / maxRand;
         var randNormalized : Float = Float.floor(randPercent * Float.fromInt(max));
         var rand_return : Nat = Int.abs(Float.toInt(randNormalized));
 
@@ -1395,7 +1393,7 @@ actor class DRC721() {
             userIdKeyEntries = userIdKey_buff.toArray();
             displayTankEntries = display_tank_buff.toArray();
             stakingTankEntries = staking_tank_buff.toArray();
-            goldfishAirDropEntries = Iter.toArray(goldfishAirDrops.entries());
+            goldenfishAirDropEntries = Iter.toArray(goldenfishAirDrops.entries());
             adoptableFishEntries = Iter.toArray(adoptable_fish_hash.entries());
             adopted_fish = adopted_fish;
             donated_fish = donated_fish;
@@ -1409,8 +1407,8 @@ actor class DRC721() {
         for(key in users_hash.keys()){ users_hash.delete(key); };
         for(val in backup.userEntries.vals()){ users_hash.put(Principal.fromText(val.0),val.1); };
 
-        for(key in goldfishAirDrops.keys()){ goldfishAirDrops.delete(key); };
-        for(val in backup.goldfishAirDropEntries.vals()){ goldfishAirDrops.put(val.0,val.1); };
+        for(key in goldenfishAirDrops.keys()){ goldenfishAirDrops.delete(key); };
+        for(val in backup.goldenfishAirDropEntries.vals()){ goldenfishAirDrops.put(val.0,val.1); };
 
         for(key in adoptable_fish_hash.keys()){ adoptable_fish_hash.delete(key); };
         for(val in backup.adoptableFishEntries.vals()){ adoptable_fish_hash.put(val.0,val.1); };
@@ -1444,7 +1442,7 @@ actor class DRC721() {
         displayTankEntries := display_tank_buff.toArray();
         stakingTankEntries := staking_tank_buff.toArray();
         userEntries := Iter.toArray(users_hash.entries());
-        goldfishAirDropEntries := Iter.toArray(goldfishAirDrops.entries());
+        goldenfishAirDropEntries := Iter.toArray(goldenfishAirDrops.entries());
         adoptableFishEntries := Iter.toArray(adoptable_fish_hash.entries());
     };
 
@@ -1470,7 +1468,7 @@ actor class DRC721() {
         stakingTankEntries := [];
         
         userEntries := [];
-        goldfishAirDropEntries := [];
+        goldenfishAirDropEntries := [];
         adoptableFishEntries := [];
     };
 };

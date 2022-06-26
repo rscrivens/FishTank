@@ -17,7 +17,7 @@ module {
         principalId         : Text;
         display_tank        : DisplayTank;
         display_fish        : [FishMetadata];
-        has_goldfish        : Bool;
+        has_goldenfish        : Bool;
         user_info           : UserInfo;
         is_admin            : Bool;
     };
@@ -166,7 +166,7 @@ module {
         displayTankEntries      : [DisplayTank];
         stakingTankEntries      : [StakingTank];
         userEntries             : [(Text, UserInfo)];
-        goldfishAirDropEntries  : [(UserId, Bool)];
+        goldenfishAirDropEntries: [(UserId, Bool)];
         adoptableFishEntries    : [(FishId, Nat)];
 
         donated_fish            : Nat;
