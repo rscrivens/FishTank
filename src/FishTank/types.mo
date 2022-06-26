@@ -37,6 +37,19 @@ module {
         num_adopted         : Nat;
     };
 
+    public type UserInfoVariant = {
+        #USERINFO_ACHIEVEMENTS  : [Text];
+        #USERINFO_FISH          : [FishId];
+        #USERINFO_FISH_HATS     : [HatAcc];
+        #USERINFO_TANK_ACCS     : [Text];
+        #USERINFO_WALLETS       : [{wallet:Text; id:Principal}];
+        #USERINFO_LAST_LOGIN    : Nat;
+        #USERINFO_LOGIN_STREAK  : Nat;
+        #USERINFO_NUM_MINTED    : Nat;
+        #USERINFO_NUM_DONATED   : Nat;
+        #USERINFO_NUM_ADOPTED   : Nat;
+    };
+
     public type UserInfoOld = {
         id                  : UserId;
         achievements        : [Text];
@@ -59,6 +72,15 @@ module {
         unlocked_hats       : [HatAcc];
     };
 
+    public type FishMetadataVariant = {
+        #FISHMD_FAVORITE        : Bool;
+        #FISHMD_LEVEL           : Nat;
+        #FISHMD_NAME            : Text;
+        #FISHMD_OWNER_HISTORY   : [TransferEvent];
+        #FISHMD_PROPERTIES      : FishProps;
+        #FISHMD_UNLOCKED_HATS   : [HatAcc]
+    };
+
     public type TransferEvent = {
         time                : Nat;
         from                : ?Text;
@@ -74,6 +96,10 @@ module {
         eye_color           : Text;
         speed               : FishSpeed;
         size                : FishSize;
+    };
+
+    public type FishPropsVariant = {
+        #FISHPROP_HAT: HatAcc;
     };
 
     public type FishSpeed = {
@@ -107,6 +133,15 @@ module {
         effect              : Text;
     };
 
+    public type DisplayTankVariant = {
+        #DISPLAYTANK_FISH           : [FishId];
+        #DISPLAYTANK_COLOR_BOTTOM   : Text;
+        #DISPLAYTANK_COLOR_BG       : Text;
+        #DISPLAYTANK_ACC_LEFT       : Text;
+        #DISPLAYTANK_ACC_RIGHT      : Text;
+        #DISPLAYTANK_EFFECT         : Text;
+    };
+
     public type StakingTank = {
         fish                : [FishId];
         color_bottom        : Text;
@@ -114,6 +149,15 @@ module {
         acc_left            : Text;
         acc_right           : Text;
         effect              : Text;
+    };
+
+    public type StakingTankVariant = {
+        #STAKINGTANK_FISH           : [FishId];
+        #STAKINGTANK_COLOR_BOTTOM   : Text;
+        #STAKINGTANK_COLOR_BG       : Text;
+        #STAKINGTANK_ACC_LEFT       : Text;
+        #STAKINGTANK_ACC_RIGHT      : Text;
+        #STAKINGTANK_EFFECT         : Text;
     };
 
     public type Backup = {

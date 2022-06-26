@@ -15,6 +15,7 @@ import Option "mo:base/Option";
 import Principal "mo:base/Principal";
 import Random "mo:base/Random";
 import T "types";
+import H "helpers";
 import Time "mo:base/Time";
 import Result "mo:base/Result";
 import F "ledger_types";
@@ -598,14 +599,7 @@ actor class DRC721() {
     private func _removeFromDisplayTank(u_id: T.UserId, fishId: T.FishId) : () {
         let cur_display_tank = display_tank_buff.get(u_id);
         let new_display_fish = Array.filter(cur_display_tank.fish, func(id:T.FishId):Bool{ return id != fishId});
-        let new_display_tank : T.DisplayTank = {
-            acc_left = cur_display_tank.acc_left;
-            acc_right = cur_display_tank.acc_right;
-            color_bg = cur_display_tank.color_bg;
-            color_bottom = cur_display_tank.color_bottom;
-            effect = cur_display_tank.effect;
-            fish = new_display_fish;
-        };
+        let new_display_tank = H._editDisplayTank(cur_display_tank, [#DISPLAYTANK_FISH(new_display_fish)]);
         display_tank_buff.put(u_id, new_display_tank);
     };
 
@@ -620,33 +614,18 @@ actor class DRC721() {
                 };
                 new_display_fish.add(fishId);
 
-                let new_display_tank : T.DisplayTank = {
-                    acc_left = cur_display_tank.acc_left;
-                    acc_right = cur_display_tank.acc_right;
-                    color_bg = cur_display_tank.color_bg;
-                    color_bottom = cur_display_tank.color_bottom;
-                    effect = cur_display_tank.effect;
-                    fish = new_display_fish.toArray();
-                };
+                let new_display_tank = H._editDisplayTank(cur_display_tank, [#DISPLAYTANK_FISH(new_display_fish.toArray())]);
 
                 display_tank_buff.put(u_id, new_display_tank);
             };
-            case(_){
-            };
+            case(_){ };
         };
     };
 
     private func _removeFromStakingTank(u_id: T.UserId, fishId: T.FishId) : () {
         let cur_staking_tank = staking_tank_buff.get(u_id);
         let new_staking_fish = Array.filter(cur_staking_tank.fish, func(id:T.FishId):Bool{ return id != fishId});
-        let new_staking_tank : T.StakingTank = {
-            acc_left = cur_staking_tank.acc_left;
-            acc_right = cur_staking_tank.acc_right;
-            color_bg = cur_staking_tank.color_bg;
-            color_bottom = cur_staking_tank.color_bottom;
-            effect = cur_staking_tank.effect;
-            fish = new_staking_fish;
-        };
+        let new_staking_tank = H._editStakingTank(cur_staking_tank, [#STAKINGTANK_FISH(new_staking_fish)]);
         staking_tank_buff.put(u_id, new_staking_tank);
     };
 
@@ -661,14 +640,7 @@ actor class DRC721() {
                 };
                 new_staking_fish.add(fishId);
 
-                let new_staking_tank : T.StakingTank = {
-                    acc_left = cur_staking_tank.acc_left;
-                    acc_right = cur_staking_tank.acc_right;
-                    color_bg = cur_staking_tank.color_bg;
-                    color_bottom = cur_staking_tank.color_bottom;
-                    effect = cur_staking_tank.effect;
-                    fish = new_staking_fish.toArray();
-                };
+                let new_staking_tank = H._editStakingTank(cur_staking_tank, [#STAKINGTANK_FISH(new_staking_fish.toArray())]);
 
                 staking_tank_buff.put(u_id, new_staking_tank);
             };
@@ -732,7 +704,8 @@ actor class DRC721() {
                 let now : Nat = Int.abs(Time.now());
                 var new_login_streak = user.login_streak + 1;
 
-                let new_user_info : T.UserInfo = _editUserInfo(user, null, null,  null, ?now, ?new_login_streak, null, null, null, null, null);
+                let new_user_info : T.UserInfo = H._editUserInfo(user,
+                [#USERINFO_LAST_LOGIN(now), #USERINFO_LOGIN_STREAK(new_login_streak)]);
 
                 let display_res = switch(_getDisplayTank(user.id)) {
                     case (#err(error)){ return #err(error); };
@@ -777,7 +750,7 @@ actor class DRC721() {
                     return #err(#INVALIDNAME);
                 };
 
-                var new_fish = _editFish(fish, null, null, ?name, null, null, null, null);
+                var new_fish = H._editFish(fish, [#FISHMD_NAME(name)]);
                 fish_buff.put(fish_id, new_fish);
 
                 return #ok(name);
@@ -823,7 +796,8 @@ actor class DRC721() {
             };
         });
         let new_num_donated = user.num_donated + 1;
-        let new_user_info : T.UserInfo = _editUserInfo(user, null, ?new_fishIds, ?new_hats, null, null, null, null, null, ?new_num_donated, null);
+        let new_user_info : T.UserInfo = H._editUserInfo(user, 
+            [#USERINFO_FISH(new_fishIds), #USERINFO_FISH_HATS(new_hats), #USERINFO_NUM_DONATED(new_num_donated)]);
         users_hash.put(u_key, new_user_info);
 
         // Update fish history
@@ -840,7 +814,7 @@ actor class DRC721() {
                 new_transfer_event;
             };
         });
-        var new_fish = _editFish(fish, null, ?(fish.level + 1), null, ?new_owner_history, null, null, null);
+        var new_fish = H._editFish(fish, [#FISHMD_LEVEL(fish.level + 1), #FISHMD_OWNER_HISTORY(new_owner_history)]);
         fish_buff.put(fish_id, new_fish);
 
         // transfer fish to adoptable fish buffer
@@ -886,11 +860,11 @@ actor class DRC721() {
         // Check an unlock was found(removed)
         if(removed == false){ return #err(#NOUNLOCKAVAILABLE) };
 
-        let new_user_info : T.UserInfo = _editUserInfo(user, null, null, ?new_hats, null, null, null, null, null, null, null);
+        let new_user_info : T.UserInfo = H._editUserInfo(user,[#USERINFO_FISH_HATS(new_hats)]);
         users_hash.put(u_key, new_user_info);
 
         // Add the accessory to the unlocked hats array
-        let new_fish_prop : T.FishProps = _editFishProperties(fish.properties, ?hat);
+        let new_fish_prop : T.FishProps = H._editFishProperties(fish.properties,[#FISHPROP_HAT(hat)]);
         let new_unlocked_hats : [T.HatAcc] = Array.tabulate(fish.unlocked_hats.size() + 1, func (index:Nat): T.HatAcc{
             if(index != fish.unlocked_hats.size()){
                 fish.unlocked_hats[index];
@@ -898,7 +872,7 @@ actor class DRC721() {
                 hat;
             };
         });
-        let new_fish : T.FishMetadata = _editFish(fish, null, null, null, null, null, null, ?new_unlocked_hats);
+        let new_fish : T.FishMetadata = H._editFish(fish, [#FISHMD_UNLOCKED_HATS(new_unlocked_hats)]);
         fish_buff.put(fish_id, new_fish);
 
         return #ok({fish_hats=new_hats; fishMD=new_fish});
@@ -922,8 +896,8 @@ actor class DRC721() {
             case (_) { };
         };
 
-        let new_fish_prop : T.FishProps = _editFishProperties(fish.properties, ?hat);
-        let new_fish : T.FishMetadata = _editFish(fish, null, null, null, null, ?new_fish_prop, null, null);
+        let new_fish_prop : T.FishProps = H._editFishProperties(fish.properties,[#FISHPROP_HAT(hat)]);
+        let new_fish : T.FishMetadata = H._editFish(fish, [#FISHMD_PROPERTIES(new_fish_prop)]);
         fish_buff.put(fish_id, new_fish);
 
         return #ok(new_fish);
@@ -943,63 +917,12 @@ actor class DRC721() {
             return #err(#NOTAUTHORIZED);
         };
 
-        var new_fish = _editFish(fish, ?(not fish.favorite), null, null, null, null, null, null);
+        var new_fish = H._editFish(fish, [#FISHMD_FAVORITE(not fish.favorite)]);
         fish_buff.put(fish_id, new_fish);
 
         return #ok(new_fish.favorite);
     };
 
-    private func _editFish(existing: T.FishMetadata, favorite:?Bool, level:?Nat, name:?Text, owner_history:?[T.TransferEvent], 
-    properties:?T.FishProps, soul_bound:?Bool, unlocked_hats:?[T.HatAcc]) : T.FishMetadata {
-        let new_fish : T.FishMetadata =  {
-            favorite = switch(favorite){ case(null){existing.favorite}; case(?n){ n };};
-            level = switch(level){ case(null){ existing.level }; case(?n){ n };};
-            name = switch(name){ case(null){ existing.name }; case(?n){ n };};
-            owner_history = switch(owner_history){ case(null){ existing.owner_history }; case(?n){ n };};
-            properties = switch(properties){ case(null){ existing.properties }; case(?n){ n };};
-            soul_bound = switch(soul_bound){ case(null){existing.soul_bound}; case(?n){ n };};
-            unlocked_hats = switch(unlocked_hats){ case(null){existing.unlocked_hats}; case(?n){ n };};
-        };
-
-        return new_fish;
-    };
-
-    private func _editUserInfo(existing: T.UserInfo, achievements: ?[Text], fish: ?[T.FishId], fish_hats: ?[T.HatAcc],
-    last_login: ?Nat, login_streak: ?Nat, tank_accs : ?[Text], wallets: ?[{id:Principal; wallet: Text}],
-    num_adopted: ?Nat, num_donated: ?Nat, num_minted: ?Nat ) : T.UserInfo{
-        let new_user_info : T.UserInfo = {
-            achievements = switch(achievements){ case(null){existing.achievements}; case(?n){ n };};
-            created_date = existing.created_date;
-            fish = switch(fish){ case(null){existing.fish}; case(?n){ n };};
-            fish_hats = switch(fish_hats){ case(null){existing.fish_hats}; case(?n){ n };};
-            id = existing.id;
-            last_login = switch(last_login){ case(null){existing.last_login}; case(?n){ n };};
-            login_streak = switch(login_streak){ case(null){existing.login_streak}; case(?n){ n };};
-            tank_accs = switch(tank_accs){ case(null){existing.tank_accs}; case(?n){ n };};
-            wallets = switch(wallets){ case(null){existing.wallets}; case(?n){ n };};
-            num_adopted = switch(num_adopted){ case(null){existing.num_adopted}; case(?n){ n };};
-            num_donated = switch(num_donated){ case(null){existing.num_donated}; case(?n){ n };};
-            num_minted = switch(num_minted){ case(null){existing.num_minted}; case(?n){ n };};
-        };
-
-        return new_user_info;
-    };
-
-    private func _editFishProperties(existing: T.FishProps, hat: ?T.HatAcc ) : T.FishProps{
-        let new_fish_props : T.FishProps = {
-            hat = switch(hat){ case(null){existing.hat}; case(?n){ n };};
-            body_type = existing.body_type;
-            color_1 = existing.color_1;
-            color_2 = existing.color_2;
-            color_3 = existing.color_3;
-            eye_color = existing.eye_color;
-            size = existing.size;
-            speed = existing.speed;
-        };
-
-        return new_fish_props;
-    };
-    
     private func _isOwner(u_key: T.UserKey, fish_id: T.FishId) : Bool  {
         switch(users_hash.get(u_key)){
             case(null){
@@ -1228,7 +1151,7 @@ actor class DRC721() {
             };
         });
         let new_num_minted = user.num_minted + 1;
-        let new_user_info : T.UserInfo = _editUserInfo(user, null, ?new_fish,  null, null, null, null, null, null, null, ?new_num_minted);
+        let new_user_info : T.UserInfo = H._editUserInfo(user, [#USERINFO_FISH(new_fish), #USERINFO_NUM_MINTED(new_num_minted)]);
         users_hash.put(u_key, new_user_info);
         _addToDisplayTank(new_user_info.id, id);
         
