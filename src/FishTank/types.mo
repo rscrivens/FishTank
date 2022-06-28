@@ -50,18 +50,6 @@ module {
         #USERINFO_NUM_ADOPTED   : Nat;
     };
 
-    public type UserInfoOld = {
-        id                  : UserId;
-        achievements        : [Text];
-        created_date        : Nat;
-        fish                : [FishId];
-        fish_hats           : [HatAcc];
-        tank_accs           : [Text];
-        wallets             : [{wallet:Text; id:Principal}];
-        last_login          : Nat;
-        login_streak        : Nat;
-    };
-
     public type FishMetadata = {
         favorite            : Bool;
         level               : Nat;
