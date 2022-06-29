@@ -91,7 +91,7 @@ async function menuLinkClicked(e) {
 
   switch (newState) {
     case "random":
-      loadRandomTank();
+      loadRandomTank(false);
       showSection("random");
       break;
     case "login":
@@ -109,7 +109,7 @@ async function menuLinkClicked(e) {
       break;
     case "logout":
       logout();
-      loadRandomTank();
+      loadRandomTank(false);
       showSection("random");
       break;
     case "about":
@@ -366,14 +366,14 @@ async function setFishHat(e) {
 
   var serverHat = convertHatValToServer(e.target.value);
   const actor = await iiAuth.getActor();
-  var results = await actor.setFishHat(fishId, serverHat);
-  if (results.ok !== undefined) {
-    console.log(results.ok.properties.hat);
-    console.log("hat set");
-    var hatVal = convertHat(results.ok.properties.hat).value;
+  var result = await actor.setFishHat(fishId, serverHat);
+  if (result.ok !== undefined) {
+    var hatVal = convertHat(result.ok.properties.hat).value;
     loadFishHat(fishId, hatVal);
     e.target.parentElement.dataset.sortval = hatVal;
-    syncFishMD(fishId, results.ok);
+    syncFishMD(fishId, result.ok);
+  } else {
+    showMessage(`Error occured setting fish hat`, "error", result.err);
   }
 
   e.target.disabled = false;
@@ -586,8 +586,8 @@ async function unlockHat(e) {
   if (hat !== "") {
     hat = convertHatValToServer(hat);
     const actor = await iiAuth.getActor();
-    var results = await actor.unlockHatOnFish(fishId, hat);
-    if (results.ok !== undefined) {
+    var result = await actor.unlockHatOnFish(fishId, hat);
+    if (result.ok !== undefined) {
       var hatselector = document.getElementById("hat_" + fishId).firstChild;
       var opt = document.createElement("option");
       hat = convertHat(hat);
@@ -595,10 +595,10 @@ async function unlockHat(e) {
       opt.innerText = hat.label;
       hatselector.appendChild(opt);
 
-      user.fish_hats = results.ok.fish_hats;
-      syncFishMD(fishId, results.ok.fishMD);
+      user.fish_hats = result.ok.fish_hats;
+      syncFishMD(fishId, result.ok.fishMD);
     } else {
-      console.log("error trying to unlock hat");
+      showMessage(`Error trying to unlock hat`, "error", result.err);
     }
   }
   e.target.disabled = false;
@@ -610,11 +610,11 @@ async function toggleDisplayTank(e) {
 
   var fishId = BigInt(e.target.parentElement.id.split("_")[1]);
   const actor = await iiAuth.getActor();
-  var results = await actor.toggleInDisplayTank(fishId);
-  if (results.ok !== undefined) {
-    addRemoveFromTankOnDisplay(results.ok, fishId);
+  var result = await actor.toggleInDisplayTank(fishId);
+  if (result.ok !== undefined) {
+    addRemoveFromTankOnDisplay(result.ok, fishId);
   } else {
-    console.log("failed: " + results.err);
+    showMessage(`Error toggling fish in Display tank`, "error", result.err);
     e.target.checked = !e.target.checked;
   }
 
@@ -667,28 +667,30 @@ async function login() {
   }
 
   const actor = await iiAuth.getActor();
-  var results = await actor.login();
-  if (results.err && results.err.NOUSERFOUND === null) {
-    results = await actor.createNewUser();
+  var result = await actor.login();
+  if (result.err && result.err.NOUSERFOUND === null) {
+    result = await actor.createNewUser();
   }
 
-  if (results.ok) {
-    user = results.ok.user_info;
-    userPrincipalId = results.ok.principalId;
+  if (result.ok) {
+    user = result.ok.user_info;
+    userPrincipalId = result.ok.principalId;
 
-    userDisplayTank = results.ok.display_tank;
-    userDisplayFish = results.ok.display_fish;
-    userHasGoldenfish = results.ok.has_goldenfish;
+    userDisplayTank = result.ok.display_tank;
+    userDisplayFish = result.ok.display_fish;
+    userHasGoldenfish = result.ok.has_goldenfish;
     if (userHasGoldenfish) {
       document.getElementById("tradegoldenfish").classList.remove("hidden");
     }
 
-    userIsAdmin = results.ok.is_admin;
+    userIsAdmin = result.ok.is_admin;
     if (userIsAdmin) {
       document.getElementById("navdropdown").classList.add("isAdmin");
     } else {
       document.getElementById("navdropdown").classList.remove("isAdmin");
     }
+  } else {
+    showMessage(`Error during log in`, "error", result.err);
   }
 }
 
@@ -719,13 +721,15 @@ async function loadDisplayTank() {
   reloadTankOnDisplay();
 }
 
-async function loadRandomTank() {
-  var results = await FishTank.getRandomTank();
-  if (results.ok) {
-    tankOnDisplay = results.ok.tank;
-    fishOnDisplay = results.ok.fish;
-    goldenfishOnDisplay = results.ok.has_goldenfish;
+async function loadRandomTank(pageLoad) {
+  var result = await FishTank.getRandomTank(pageLoad);
+  if (result.ok) {
+    tankOnDisplay = result.ok.tank;
+    fishOnDisplay = result.ok.fish;
+    goldenfishOnDisplay = result.ok.has_goldenfish;
     reloadTankOnDisplay();
+  } else {
+    showMessage(`Error getting random tank`, "error", result.err);
   }
 
   loadServerStatsInfo();
@@ -741,7 +745,7 @@ async function getStorageTank() {
   if (result.ok != undefined) {
     userStorageTank = result.ok;
   } else {
-    console.log("Could not retrieve Storage tank");
+    showMessage(`Error retrieving Storage tank`, "error", result.err);
   }
 }
 
@@ -771,17 +775,17 @@ async function tradeGfClick(e) {
   tradegfbtn.disabled = true;
   tradegfbtn.innerText = "Trading...";
   const actor = await iiAuth.getActor();
-  var claimResult = await actor.tradeGoldenfish();
-  if (claimResult.ok) {
-    console.log(claimResult);
+  var result = await actor.tradeGoldenfish();
+  if (result.ok) {
     var tankobj = document.getElementById("tankobj").getSVGDocument();
     tankobj.getElementById("tank").removeChild(tankobj.getElementById("goldenfish"));
-    loadFish(claimResult.ok.fishId, claimResult.ok.metadata.properties);
+    loadFish(result.ok.fishId, result.ok.metadata.properties);
     userHasGoldenfish = false;
     tradegfbtn.innerText = "Trade Complete";
     await getStorageTank();
     loadStorageInfo();
   } else {
+    showMessage(`Error trading in golden fish`, "error", result.err);
     tradegfbtn.innerText = "Trade failed";
     setTimeout(() => {
       tradegfbtn.innerText = "Trade in!";
@@ -807,15 +811,11 @@ async function donateClick(e) {
     user.fish_hats.push(result.ok.fish_hat);
 
     var hat = convertHat(result.ok.fish_hat);
-    showMessage(`You've recieved one ${hat.label} hat unlock!`);
+    showMessage(`You've recieved one ${hat.label} hat unlock!`, "info");
   } else {
-    console.log("error" + result.err);
+    showMessage(`Error happened donating fish`, "error", result.err);
     e.target.disabled = false;
   }
-}
-
-function showMessage(msg) {
-  console.log(msg);
 }
 
 async function favoriteClick(e) {
@@ -831,7 +831,7 @@ async function favoriteClick(e) {
     updateFavoriteRelatedButtons(fishId, result.ok);
     e.target.parentElement.dataset.sortval = result.ok;
   } else {
-    console.log("toggle favorite failed");
+    showMessage(`toggle favorite failed`, "error", result.err);
     updateFavoriteButton(e.target, origstate);
   }
 }
@@ -895,11 +895,11 @@ async function mint() {
     mintbtn.innerText = "Minting Fish!";
     const actor = await iiAuth.getActor();
 
-    var mintResult = await actor.mint();
-    if (mintResult.ok) {
+    var result = await actor.mint();
+    if (result.ok) {
       mintbtn.innerText = "Congrats on new Fish!";
-      var fishId = mintResult.ok.fishId;
-      var metadata = mintResult.ok.metadata;
+      var fishId = result.ok.fishId;
+      var metadata = result.ok.metadata;
       user.fish.push(fishId);
       userDisplayTank.fish.push(fishId);
       userDisplayFish.push(metadata);
@@ -917,9 +917,11 @@ async function mint() {
       firstRow.parentNode.insertBefore(newRow, firstRow);
 
       selectFish(fishsvg);
+    } else {
+      showMessage(`Error minting fish`, "error", result.err);
     }
   } catch (e) {
-    console.log(e);
+    showMessage(`Error minting fish: ${e}`, "error");
     mintbtn.innerText = "Failed to Mint!";
   }
 }
@@ -927,14 +929,13 @@ async function mint() {
 async function nextRandClick(e) {
   nextrandbtn.disabled = true;
 
-  await loadRandomTank();
+  await loadRandomTank(false);
 
   nextrandbtn.disabled = false;
 }
 
 function clickedOnFish(e) {
   var fishsvg = e.currentTarget.parentElement;
-  console.log("clicked on: " + fishsvg.id);
   selectFish(fishsvg);
 }
 
@@ -990,49 +991,6 @@ function formatDate(serverDate) {
     }).format(dateObj);
 
   return formatedDate;
-}
-
-function createFishInfoEle(eleId, label, value, eleClass) {
-  var wrapper = document.createElement("p");
-  var valueText = document.createElement("text");
-  wrapper.innerText = label;
-  valueText.innerText = value;
-  wrapper.appendChild(valueText);
-  if (eleClass !== "") {
-    wrapper.classList.add(eleClass);
-  }
-  wrapper.id = "fishinfo" + eleId;
-
-  return wrapper;
-}
-
-function createFishInfoColorEle(eleId, label, value, eleClass) {
-  /*<p>Color #1:
-  <label id="fishcolor1box" class="color-box"></label>
-  <text id="fishcolor1text" class="color-box-label"></text>
-   </p>*/
-  var wrapper = document.createElement("p");
-  var box = document.createElement("label");
-  var valueText = document.createElement("text");
-
-  wrapper.innerText = label;
-  if (eleClass !== "") {
-    wrapper.classList.add(eleClass);
-  }
-  wrapper.id = "fishinfocolor" + eleId;
-
-  box.style.backgroundColor = value;
-  box.classList.add("color-box");
-  box.id = "fishinfocolor" + eleId + "box";
-
-  valueText.innerText = value;
-  valueText.classList.add("color-box-text");
-  valueText.id = "fishinfocolor" + eleId + "text";
-
-  wrapper.appendChild(box);
-  wrapper.appendChild(valueText);
-
-  return wrapper;
 }
 
 function loadFish(fishId, properties) {
@@ -1112,7 +1070,7 @@ function loadFishHat(fishId, hatVal) {
     if (hatVal !== "") {
       fish.classList.add(hatVal);
     }
-  } else{
+  } else {
     console.log("Fish is not in display tank so no need to change it");
   }
 }
@@ -1151,13 +1109,17 @@ function loadGoldenfish() {
   // triggerDelayedRedraw();
 }
 
-async function loadServerStatsInfo(){
-  var results = await FishTank.getServerStats();
-  document.getElementById("serverstats_users").innerText = ` ${results.ok.users}`;
-  document.getElementById("serverstats_minted").innerText = ` ${results.ok.minted_fish}`;
-  document.getElementById("serverstats_donated").innerText = ` ${results.ok.donated_fish}`;
-  document.getElementById("serverstats_adopted").innerText = ` ${results.ok.adopted_fish}`;
-  document.getElementById("serverstats_adoptable").innerText = ` ${results.ok.adoptable_fish}`;
+async function loadServerStatsInfo() {
+  var result = await FishTank.getServerStats();
+  if (result.ok) {
+    document.getElementById("serverstats_users").innerText = ` ${result.ok.users}`;
+    document.getElementById("serverstats_minted").innerText = ` ${result.ok.minted_fish}`;
+    document.getElementById("serverstats_donated").innerText = ` ${result.ok.donated_fish}`;
+    document.getElementById("serverstats_adopted").innerText = ` ${result.ok.adopted_fish}`;
+    document.getElementById("serverstats_adoptable").innerText = ` ${result.ok.adoptable_fish}`;
+  } else {
+    showMessage(`Error loading community info`, "error", result.err);
+  }
 }
 
 function triggerDelayedRedraw() {
@@ -1189,13 +1151,35 @@ function removeFishFromTank(fishId) {
 
 //setTimeout(nextRandClick, 500);
 
+function showMessage(msg, type, error) {
+  var msgSection = document.getElementById("messagesection");
+  var msgContent = document.getElementById("messagecontent");
+  var outputMsg = msg;
+  if (error) {
+    outputMsg = `${outputMsg} : ${Object.getOwnPropertyNames(error)[0]}`;
+  }
+  msgContent.innerText = `${outputMsg}`;
+  msgSection.classList.add("extended");
+  setTimeout(() => {
+    msgSection.classList.remove("extended");
+    setTimeout(() => {
+      msgContent.innerText = "";
+    }, 2000);
+  }, 5000);
+}
+
 // Admin tasks ---------------------------------------------------------------------------------------------
 document.getElementById("resetall").addEventListener("click", resetAll);
 document.getElementById("getlogs").addEventListener("click", getLogs);
 
 async function getLogs(e) {
   e.target.disabled = true;
-  document.getElementById("logs").innerText = await FishTank.getLogs();
+  var result = await FishTank.getLogs();
+  if (result.ok) {
+    document.getElementById("logs").innerText = result.ok;
+  } else {
+    showMessage(`Error getting logs`, "error", result.err);
+  }
   e.target.disabled = false;
 };
 
@@ -1210,11 +1194,9 @@ async function importBackup(e) {
   var importjson = JSON.parse(importtext);
   const actor = await iiAuth.getActor();
   var result = await actor.importBackup(importjson);
-  /*if (result.ok) {
-    showInfoMsg(result.ok);
-  } else {
-    showErrorMsg(result.err);
-  }*/
+  if (result.err) {
+    showMessage(`Import Backup error`, "error", result.err);
+  }
 
   document.getElementById("importbackuptext").value = "";
 }
@@ -1223,9 +1205,12 @@ async function exportBackup(e) {
   const actor = await iiAuth.getActor();
   var result = await actor.exportBackup();
   document.getElementById("exportbackuptext").value = JSON.stringify(result.ok);
+  if (result.err) {
+    showMessage(`export backup error`, "error", result.err);
+  }
 }
 // End Admin Tasks ------------------------------------------------------------------------------------------
 
 
 // After loading page pull in a random tank
-loadRandomTank();
+loadRandomTank(true);

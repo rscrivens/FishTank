@@ -163,6 +163,7 @@ module {
         adminsEntries           : [Text];
         donateKey               : ?Text;
         logs                    : Text;
+        page_loads              : Nat;
     };
 
     public type ErrorCode = {

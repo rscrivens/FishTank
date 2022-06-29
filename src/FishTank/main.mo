@@ -50,6 +50,7 @@ actor class DRC721() {
     private stable var analyticsEntries : [{name:Text; params: ?[Text]; date:Nat}] = [];
     private let analytics_buff = Buffer.Buffer<{name:Text; params: ?[Text]; date:Nat}>(10);
     private stable var logs : Text = "";
+    private stable var page_loads : Nat = 0;
 
     /*************************** Query Functions *********************************/
     public shared query func getBalance(u_key : T.UserKey) : async Result.Result<Nat,T.ErrorCode> {
@@ -162,8 +163,8 @@ actor class DRC721() {
         return _login(msg.caller);
     };
 
-    public shared func getRandomTank() : async Result.Result<{tank:T.DisplayTank;fish:[T.FishMetadata];has_goldenfish:Bool},T.ErrorCode> {
-        return await _getRandomTank();
+    public shared func getRandomTank(page_load:Bool) : async Result.Result<{tank:T.DisplayTank;fish:[T.FishMetadata];has_goldenfish:Bool},T.ErrorCode> {
+        return await _getRandomTank(page_load);
     };
 
     public shared(msg) func mint() : async Result.Result<{fishId:T.FishId; metadata:T.FishMetadata},T.ErrorCode>{
@@ -938,7 +939,11 @@ actor class DRC721() {
         };
     };
 
-    private func _getRandomTank() : async Result.Result<{tank:T.DisplayTank;fish:[T.FishMetadata];has_goldenfish:Bool},T.ErrorCode> {
+    private func _getRandomTank(page_load:Bool) : async Result.Result<{tank:T.DisplayTank;fish:[T.FishMetadata];has_goldenfish:Bool},T.ErrorCode> {
+        if(page_load == true){
+            page_loads += 1;
+        };
+
         if(display_tank_buff.size() < 1 ){
             return #err(#NOUSERFOUND);
         };
@@ -1400,6 +1405,7 @@ actor class DRC721() {
             donateKey = export_donate_key;
             adminsEntries = adminsEntries;
             logs = logs;
+            page_loads = page_loads;
         });
     };
 
@@ -1432,6 +1438,7 @@ actor class DRC721() {
             };
         };
         logs := backup.logs;
+        page_loads := backup.page_loads;
 
         return #ok("imported backup");
     };
