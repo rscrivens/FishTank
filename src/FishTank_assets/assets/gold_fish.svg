@@ -136,27 +136,25 @@
 
             @keyframes goldenfish_swim {
                 0% {
-                    transform: translateX(0%) translateY(1000000px) scale(.15) rotateY(90deg);
-                    display: flex;
+                    transform: translateX(-5%) translateY(1000000px) scale(.15) rotateY(90deg);
                 }
                 1% {
-                    transform: translateX(0%) translateY(1000000px) scale(.15) rotateY(180deg);
+                    transform: translateX(-5%) translateY(1000000px) scale(.15) rotateY(180deg);
                 }
                 49% {
-                    transform: translateX(100%) translateY(1000000px) scale(.15) rotateY(180deg);
-                    display: hidden;
+                    transform: translateX(105%) translateY(1000000px) scale(.15) rotateY(180deg);
                 }
                 50% {
-                    transform: translateX(100%) translateY(1000000px) scale(.15) rotateY(90deg);
+                    transform: translateX(105%) translateY(1000000px) scale(.15) rotateY(90deg);
                 }
                 51% {
-                    transform: translateX(100%) translateY(1000000px) scale(.15);
+                    transform: translateX(105%) translateY(1000000px) scale(.15);
                 }
                 99% {
-                    transform: translateX(0%) translateY(1000000px) scale(.15);
+                    transform: translateX(-5%) translateY(1000000px) scale(.15);
                 }
                 100% {
-                    transform: translateX(0%) translateY(1000000px) scale(.15) rotateY(90deg);
+                    transform: translateX(-5%) translateY(1000000px) scale(.15) rotateY(90deg);
                 }
             }
         </style>
